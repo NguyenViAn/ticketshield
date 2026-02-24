@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-orbitron);
+
+  /* Cyberpunk / Neon Palette */
+  --color-black: #000000;
+  --color-dark-gray: #050510;
+  --color-neon-cyan: #00f0ff;
+  --color-neon-pink: #ff003c;
+  --color-neon-purple: #b026ff;
+  --color-neon-blue: #0033ff;
+  
+  --radius-lg: 0.5rem;
+  --radius-md: calc(var(--radius-lg) - 2px);
+  --radius-sm: calc(var(--radius-md) - 2px);
+  
+  --animate-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-gradient-x: gradient-x 3s ease infinite;
+
+  @keyframes gradient-x {
+    0%, 100% {
+      background-size: 200% 200%;
+      background-position: left center;
+    }
+    50% {
+      background-size: 200% 200%;
+      background-position: right center;
+    }
+  }
+}
+
+/* Glassmorphism primitives & custom utilities */
+@layer utilities {
+  .glass {
+    @apply bg-black/30 backdrop-blur-md border border-white/10;
+  }
+  .neon-text-cyan {
+    text-shadow: 0 0 10px var(--color-neon-cyan), 0 0 20px var(--color-neon-cyan);
+  }
+  .neon-text-pink {
+    text-shadow: 0 0 10px var(--color-neon-pink), 0 0 20px var(--color-neon-pink);
+  }
+  .neon-shadow-cyan {
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.5);
+  }
+  .neon-shadow-purple {
+    box-shadow: 0 0 15px rgba(176, 38, 255, 0.5);
+  }
+  .neon-border {
+    @apply border border-transparent;
+    box-shadow: inset 0 0 15px rgba(0, 240, 255, 0.2), 0 0 15px rgba(0, 240, 255, 0.2);
+  }
+  .bg-galaxy {
+    background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+  }
+}
+
+/* Base styles */
+@layer base {
+  :root {
+    --background: #000000;
+    --foreground: #ffffff;
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    @apply font-sans antialiased selection:bg-neon-cyan selection:text-black;
+  }
+}
+
+/* Custom Scrollbar for Cyberpunk feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-black); 
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-neon-purple); 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neon-cyan); 
+}
