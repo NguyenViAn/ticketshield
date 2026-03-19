@@ -6,9 +6,9 @@ const DEFAULT_LEAGUE_LOGO =
 
 const TEAM_LOGOS: Record<string, string> = {
   "ac milan": "https://upload.wikimedia.org/wikipedia/commons/d/d0/Logo_of_AC_Milan.svg",
-  "atm madrid": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Atletico_Madrid_Logo_2024.svg",
+  "atm madrid": "https://upload.wikimedia.org/wikipedia/it/1/15/Club_Atl%C3%A9tico_de_Madrid_logo_2018.png",
   "arsenal": "https://upload.wikimedia.org/wikipedia/en/5/53/Arsenal_FC.svg",
-  "atletico madrid": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Atletico_Madrid_Logo_2024.svg",
+  "atletico madrid": "https://upload.wikimedia.org/wikipedia/it/1/15/Club_Atl%C3%A9tico_de_Madrid_logo_2018.png",
   "barcelona": "https://upload.wikimedia.org/wikipedia/en/4/47/FC_Barcelona_%28crest%29.svg",
   "bayern munich": "https://upload.wikimedia.org/wikipedia/commons/1/1b/FC_Bayern_M%C3%BCnchen_logo_%282017%29.svg",
   "cahn": "https://upload.wikimedia.org/wikipedia/vi/3/38/Logo_CAHN_FC.svg",
@@ -44,7 +44,7 @@ const LEAGUE_LOGOS: Array<{ match: string[]; logo: string }> = [
   },
   {
     match: ["champions league", "c1"],
-    logo: "https://upload.wikimedia.org/wikipedia/commons/0/08/UEFA_Champions_League_logo_2.svg",
+    logo: "https://upload.wikimedia.org/wikipedia/vi/6/6b/UEFA_CHAMPIONS_LEAGUE.png",
   },
   {
     match: ["la liga"],
@@ -56,7 +56,7 @@ const LEAGUE_LOGOS: Array<{ match: string[]; logo: string }> = [
   },
   {
     match: ["v league", "v-league"],
-    logo: "https://upload.wikimedia.org/wikipedia/vi/9/9c/V.League_1_logo.svg",
+    logo: "https://upload.wikimedia.org/wikipedia/vi/4/4c/V.League_1_new_logo.svg",
   },
 ];
 

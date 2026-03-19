@@ -6,7 +6,7 @@
 -- 1. Insert More Tournaments
 INSERT INTO public.tournaments (name, logo_url) 
 VALUES 
-('V-League 2024/25', 'https://upload.wikimedia.org/wikipedia/vi/9/9c/V.League_1_logo.svg'),
+('V-League 2024/25', 'https://upload.wikimedia.org/wikipedia/vi/4/4c/V.League_1_new_logo.svg'),
 ('La Liga', 'https://upload.wikimedia.org/wikipedia/commons/0/0f/LaLiga_logo_2023.svg'),
 ('Serie A', 'https://upload.wikimedia.org/wikipedia/commons/e/e1/Lega_Serie_A_logo_%282021%29.svg');
 
@@ -72,7 +72,7 @@ VALUES
 (
     (SELECT id FROM public.tournaments WHERE name = 'La Liga' LIMIT 1),
     'Atletico Madrid', 'Sevilla',
-    'https://commons.wikimedia.org/wiki/Special:Redirect/file/Atletico_Madrid_Logo_2024.svg',
+    'https://upload.wikimedia.org/wikipedia/it/1/15/Club_Atl%C3%A9tico_de_Madrid_logo_2018.png',
     'https://upload.wikimedia.org/wikipedia/en/thumb/3/3b/Sevilla_FC_logo.svg/1200px-Sevilla_FC_logo.svg.png',
     NOW() + INTERVAL '14 days',
     'Cívitas Metropolitano',

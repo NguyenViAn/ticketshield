@@ -5,7 +5,6 @@ import Image from "next/image";
 import { motion, type Variants, AnimatePresence, useInView } from "framer-motion";
 import {
   ArrowRight,
-  BadgeCheck,
   CalendarClock,
   CalendarRange,
   CheckCircle2,
@@ -297,17 +296,6 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="relative z-10 border-b border-white/10 py-4 ">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-8 gap-y-2 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:px-6 lg:px-8 ">
-            {trendingMatches.map((match) => (
-              <span key={`ticker-${match.id}`} className="inline-flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 " />
-                {match.home_team} vs {match.away_team}
-              </span>
-            ))}
-          </div>
-        </section>
-
         <section className="relative z-10 pt-8">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -461,67 +449,6 @@ export default function Home() {
                 <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400 ">{copy.securityFootnoteEyebrow}</div>
                 <div className="mt-2 text-xl font-semibold text-white">{copy.securityFootnoteTitle}</div>
                 <div className="mt-2 text-sm leading-6 text-slate-400 ">{copy.securityFootnoteDescription}</div>
-              </div>
-            </motion.div>
-          </motion.section>
-
-          <motion.section
-            className="grid gap-6 rounded-[36px] border border-transparent bg-transparent px-0 py-0 shadow-none lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]     "
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-80px" }}
-            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }}
-          >
-            <motion.div variants={sectionVariants} className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-none   ">
-              <SectionHeader eyebrow={copy.cityEyebrow} highlight={copy.sectionHighlights.city} icon={MapPin} title={copy.cityTitle} description={copy.cityDescription} />
-              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {copy.popularCities.map((city) => (
-                  <motion.div key={city.label} variants={sectionVariants} whileHover={{ y: -3, scale: 1.01 }}>
-                    <Link
-                      href={city.href}
-                      className="group block rounded-[24px] border border-white/10 bg-white/5 p-4 transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-none   "
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <div className="text-lg font-semibold text-white ">{city.label}</div>
-                          <div className="mt-2 text-sm leading-6 text-slate-400 ">{city.note}</div>
-                        </div>
-                        <span className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300 shadow-none   ">
-                          <span className="absolute inset-0 rounded-2xl bg-emerald-500/10 blur-sm " />
-                          <MapPin className="h-5 w-5" />
-                        </span>
-                      </div>
-                      <div className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-400 group-hover:text-emerald-400  ">
-                        {copy.cityCta}
-                        <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-                      </div>
-                    </Link>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
-
-            <motion.div variants={sectionVariants} className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-none   ">
-              <SectionHeader eyebrow={copy.leagueEyebrow} highlight={copy.sectionHighlights.league} icon={BadgeCheck} title={copy.leagueTitle} description={copy.leagueDescription} />
-              <div className="mt-6 space-y-3">
-                {copy.featuredLeagues.map((league) => (
-                  <motion.div key={league.label} variants={sectionVariants} whileHover={{ y: -3, scale: 1.01 }}>
-                    <Link
-                      href={league.href}
-                      className="group flex items-center gap-4 rounded-[24px] border border-white/10 bg-white/5 px-4 py-4 transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-none   "
-                    >
-                      <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-800/80 shadow-[0_14px_28px_-24px_rgba(0,0,0,0.45)]  ">
-                        <span className="absolute inset-0 rounded-2xl bg-emerald-500/10 blur-sm " />
-                        <Image src={league.logo} alt={league.label} width={34} height={34} className="h-8 w-8 object-contain" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold text-white ">{league.label}</div>
-                        <div className="mt-1 text-sm text-slate-400 ">{league.note}</div>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-slate-400 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-emerald-400  " />
-                    </Link>
-                  </motion.div>
-                ))}
               </div>
             </motion.div>
           </motion.section>
@@ -781,20 +708,20 @@ function TrendingMatchCard({
       href={`/matches?q=${encodeURIComponent(match.home_team)}`}
       className="group flex h-full flex-col rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.84),rgba(2,6,23,0.98))] p-5 shadow-[0_18px_42px_-28px_rgba(0,0,0,0.38)] transition-all duration-200 hover:-translate-y-1 hover:border-emerald-300/18 hover:shadow-[0_24px_56px_-30px_rgba(0,0,0,0.5)]"
     >
-      <div className="flex items-start justify-end">
-        <span className="inline-flex max-w-full items-center gap-3 rounded-[20px] border border-white/8 bg-white/[0.05] px-3.5 py-3 text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/8 bg-white/[0.08]">
-            <Image src={match.league_logo} alt={match.league} width={22} height={22} className="h-5.5 w-5.5 object-contain" />
+      <div className="rounded-[22px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+        <div className="flex items-center gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] border border-white/12 bg-white/90 shadow-[0_10px_22px_-16px_rgba(255,255,255,0.45)]">
+            <Image src={match.league_logo} alt={match.league} width={28} height={28} className="h-7 w-7 object-contain brightness-110 saturate-150" />
           </span>
-          <span className="flex min-w-0 flex-col text-left">
+          <span className="flex min-w-0 flex-1 flex-col text-left">
             <span className="text-[9px] font-semibold uppercase tracking-[0.24em] text-slate-500">
               {locale.startsWith("vi") ? "Giải đấu" : "League"}
             </span>
-            <span className="mt-1 line-clamp-2 text-[12px] font-bold uppercase leading-[1.25] tracking-[0.12em] text-slate-100">
+            <span className="mt-1 line-clamp-2 text-[12px] font-bold uppercase leading-[1.3] tracking-[0.1em] text-slate-100">
               {match.league}
             </span>
           </span>
-        </span>
+        </div>
       </div>
 
       <div className="mt-5 rounded-[24px] border border-white/8 bg-white/[0.03] px-4 py-4">
@@ -837,14 +764,14 @@ function TrendingMatchCard({
 function TeamChip({ logo, team }: { logo?: string; team: string }) {
   return (
     <div className="flex min-w-0 flex-col items-center gap-2.5 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-[20px] border border-white/10 bg-white/[0.04] text-sm font-black text-emerald-300">
+      <div className="flex h-[72px] w-[72px] items-center justify-center rounded-[22px] border border-white/12 bg-white/95 text-sm font-black text-emerald-300 shadow-[0_12px_26px_-18px_rgba(255,255,255,0.45)]">
         {logo ? (
-          <Image src={logo} alt={team} width={42} height={42} className="h-10.5 w-10.5 object-contain" />
+          <Image src={logo} alt={team} width={48} height={48} className="h-12 w-12 object-contain brightness-110 saturate-150" />
         ) : (
           getInitials(team)
         )}
       </div>
-      <div className="line-clamp-2 text-[12px] font-semibold leading-[1.25] text-slate-200">{team}</div>
+      <div className="line-clamp-2 text-[12px] font-semibold leading-[1.25] text-slate-100">{team}</div>
     </div>
   );
 }

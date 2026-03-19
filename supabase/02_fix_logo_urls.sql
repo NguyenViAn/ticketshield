@@ -7,10 +7,10 @@
 UPDATE public.tournaments
 SET logo_url = CASE
   WHEN LOWER(name) LIKE '%premier league%' THEN 'https://upload.wikimedia.org/wikipedia/en/f/f2/Premier_League_Logo.svg'
-  WHEN LOWER(name) LIKE '%champions league%' THEN 'https://upload.wikimedia.org/wikipedia/commons/0/08/UEFA_Champions_League_logo_2.svg'
+  WHEN LOWER(name) LIKE '%champions league%' THEN 'https://upload.wikimedia.org/wikipedia/vi/6/6b/UEFA_CHAMPIONS_LEAGUE.png'
   WHEN LOWER(name) LIKE '%la liga%' THEN 'https://upload.wikimedia.org/wikipedia/commons/0/0f/LaLiga_logo_2023.svg'
   WHEN LOWER(name) LIKE '%serie a%' THEN 'https://upload.wikimedia.org/wikipedia/commons/e/e1/Lega_Serie_A_logo_%282021%29.svg'
-  WHEN LOWER(name) LIKE '%v-league%' OR LOWER(name) LIKE '%v league%' THEN 'https://upload.wikimedia.org/wikipedia/vi/9/9c/V.League_1_logo.svg'
+  WHEN LOWER(name) LIKE '%v-league%' OR LOWER(name) LIKE '%v league%' THEN 'https://upload.wikimedia.org/wikipedia/vi/4/4c/V.League_1_new_logo.svg'
   ELSE logo_url
 END;
 
@@ -26,8 +26,8 @@ SET home_logo = CASE
   WHEN LOWER(home_team) = 'manchester city' THEN 'https://upload.wikimedia.org/wikipedia/en/e/eb/Manchester_City_FC_badge.svg'
   WHEN LOWER(home_team) = 'real madrid' THEN 'https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg'
   WHEN LOWER(home_team) = 'barcelona' THEN 'https://upload.wikimedia.org/wikipedia/en/4/47/FC_Barcelona_%28crest%29.svg'
-  WHEN LOWER(home_team) = 'atletico madrid' THEN 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Atletico_Madrid_Logo_2024.svg'
-  WHEN LOWER(home_team) = 'atm madrid' THEN 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Atletico_Madrid_Logo_2024.svg'
+  WHEN LOWER(home_team) = 'atletico madrid' THEN 'https://upload.wikimedia.org/wikipedia/it/1/15/Club_Atl%C3%A9tico_de_Madrid_logo_2018.png'
+  WHEN LOWER(home_team) = 'atm madrid' THEN 'https://upload.wikimedia.org/wikipedia/it/1/15/Club_Atl%C3%A9tico_de_Madrid_logo_2018.png'
   WHEN LOWER(home_team) = 'sevilla' THEN 'https://upload.wikimedia.org/wikipedia/en/3/3b/Sevilla_FC_logo.svg'
   WHEN LOWER(home_team) = 'juventus' THEN 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Juventus_FC_-_logo_black_%28Italy%2C_2020%29.svg'
   WHEN LOWER(home_team) = 'ac milan' THEN 'https://upload.wikimedia.org/wikipedia/commons/d/d0/Logo_of_AC_Milan.svg'
@@ -54,8 +54,8 @@ SET away_logo = CASE
   WHEN LOWER(away_team) = 'manchester city' THEN 'https://upload.wikimedia.org/wikipedia/en/e/eb/Manchester_City_FC_badge.svg'
   WHEN LOWER(away_team) = 'real madrid' THEN 'https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg'
   WHEN LOWER(away_team) = 'barcelona' THEN 'https://upload.wikimedia.org/wikipedia/en/4/47/FC_Barcelona_%28crest%29.svg'
-  WHEN LOWER(away_team) = 'atletico madrid' THEN 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Atletico_Madrid_Logo_2024.svg'
-  WHEN LOWER(away_team) = 'atm madrid' THEN 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Atletico_Madrid_Logo_2024.svg'
+  WHEN LOWER(away_team) = 'atletico madrid' THEN 'https://upload.wikimedia.org/wikipedia/it/1/15/Club_Atl%C3%A9tico_de_Madrid_logo_2018.png'
+  WHEN LOWER(away_team) = 'atm madrid' THEN 'https://upload.wikimedia.org/wikipedia/it/1/15/Club_Atl%C3%A9tico_de_Madrid_logo_2018.png'
   WHEN LOWER(away_team) = 'sevilla' THEN 'https://upload.wikimedia.org/wikipedia/en/3/3b/Sevilla_FC_logo.svg'
   WHEN LOWER(away_team) = 'juventus' THEN 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Juventus_FC_-_logo_black_%28Italy%2C_2020%29.svg'
   WHEN LOWER(away_team) = 'ac milan' THEN 'https://upload.wikimedia.org/wikipedia/commons/d/d0/Logo_of_AC_Milan.svg'

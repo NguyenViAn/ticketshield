@@ -87,10 +87,10 @@ export function MegaMenu({ featuredMatches, navHeight }: MegaMenuProps) {
   const closeTimerRef = React.useRef<number | null>(null);
   const [activeMenu, setActiveMenu] = React.useState<MenuKey | null>(null);
 
-  const copy = getMenuCopy(tMenu);
-  const leagues = getLeagueItems(locale, tMenu);
-  const matches = getMenuMatches(featuredMatches, locale, tMenu);
-  const navLabels = getNavLabels(locale);
+  const copy = React.useMemo(() => getMenuCopy(tMenu), [tMenu]);
+  const leagues = React.useMemo(() => getLeagueItems(locale, tMenu), [locale, tMenu]);
+  const matches = React.useMemo(() => getMenuMatches(featuredMatches, locale, tMenu), [featuredMatches, locale, tMenu]);
+  const navLabels = React.useMemo(() => getNavLabels(locale), [locale]);
 
   const clearCloseTimer = React.useCallback(() => {
     if (closeTimerRef.current !== null) {
@@ -107,7 +107,7 @@ export function MegaMenu({ featuredMatches, navHeight }: MegaMenuProps) {
   const openMenu = React.useCallback(
     (menu: MenuKey) => {
       clearCloseTimer();
-      setActiveMenu(menu);
+      setActiveMenu((currentMenu) => (currentMenu === menu ? currentMenu : menu));
     },
     [clearCloseTimer],
   );
@@ -115,7 +115,7 @@ export function MegaMenu({ featuredMatches, navHeight }: MegaMenuProps) {
   const scheduleClose = React.useCallback(() => {
     clearCloseTimer();
     closeTimerRef.current = window.setTimeout(() => {
-      setActiveMenu(null);
+      setActiveMenu((currentMenu) => (currentMenu === null ? currentMenu : null));
     }, MENU_CLOSE_DELAY_MS);
   }, [clearCloseTimer]);
 
@@ -202,7 +202,7 @@ export function MegaMenu({ featuredMatches, navHeight }: MegaMenuProps) {
             <motion.div
               key="mega-overlay"
               aria-hidden="true"
-              className="fixed inset-x-0 bottom-0 z-[105] bg-[linear-gradient(180deg,rgba(2,6,23,0.4),rgba(2,6,23,0.6)_30%,rgba(2,6,23,0.8)_100%)] backdrop-blur-[6px] "
+              className="fixed inset-x-0 bottom-0 z-[105] bg-[linear-gradient(180deg,rgba(2,6,23,0.26),rgba(2,6,23,0.48)_30%,rgba(2,6,23,0.68)_100%)]"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -223,7 +223,7 @@ export function MegaMenu({ featuredMatches, navHeight }: MegaMenuProps) {
               onMouseEnter={clearCloseTimer}
               onMouseLeave={scheduleClose}
             >
-              <div className="overflow-hidden rounded-[28px] border border-white/10 bg-slate-900/95 shadow-[0_28px_72px_-34px_rgba(0,0,0,0.6)] ring-1 ring-white/10 backdrop-blur-2xl    ">
+              <div className="overflow-hidden rounded-[28px] border border-white/10 bg-slate-900/96 shadow-[0_22px_56px_-32px_rgba(0,0,0,0.48)] ring-1 ring-white/10">
                 <div className="h-px bg-gradient-to-r from-transparent via-emerald-400/45 to-cyan-400/4" />
                 {activeMenu === "matches" ? (
                   <MatchMenu
@@ -355,7 +355,7 @@ export function LeagueMenu({
           {leagues.map((league) => (
             <Link
               key={league.label}
-              className="group flex min-h-[124px] flex-col rounded-[22px] border border-white/10 bg-white/5 p-4 shadow-none transition-all duration-150 hover:-translate-y-0.5 hover:border-emerald-500/30 hover:shadow-[0_22px_44px_-28px_rgba(16,185,129,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35   "
+              className="group flex min-h-[124px] flex-col rounded-[22px] border border-white/10 bg-white/5 p-4 shadow-none transition-colors duration-150 hover:border-emerald-500/30 hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35"
               href={league.href}
               onClick={onNavigate}
             >
@@ -387,10 +387,10 @@ export function LeagueMenu({
         </div>
       </div>
 
-      <aside className="relative overflow-hidden rounded-[24px] border border-emerald-100/70 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.18),transparent_34%),linear-gradient(160deg,#081725_0%,#0c1d31_48%,#104b57_100%)] p-5 text-white shadow-[0_28px_64px_-34px_rgba(15,23,42,0.58)]">
+      <aside className="relative overflow-hidden rounded-[24px] border border-emerald-100/70 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.16),transparent_32%),linear-gradient(160deg,#081725_0%,#0c1d31_48%,#104b57_100%)] p-5 text-white shadow-[0_22px_52px_-32px_rgba(15,23,42,0.46)]">
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),transparent_45%)]" />
-        <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute bottom-0 left-0 h-28 w-28 rounded-full bg-emerald-300/10 blur-3xl" />
+        <div className="absolute right-0 top-0 h-20 w-20 rounded-full bg-white/8 blur-2xl" />
+        <div className="absolute bottom-0 left-0 h-24 w-24 rounded-full bg-emerald-300/8 blur-2xl" />
         <div className="relative flex h-full flex-col">
           <span className="inline-flex w-fit items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100">
             {bannerBadge}
@@ -401,7 +401,7 @@ export function LeagueMenu({
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
             {bannerHighlights.map((highlight) => (
-              <div key={highlight.eyebrow} className="rounded-[18px] border border-white/10 bg-white/[0.07] px-4 py-3 backdrop-blur-sm">
+              <div key={highlight.eyebrow} className="rounded-[18px] border border-white/10 bg-white/[0.07] px-4 py-3">
                 <div className="text-[11px] uppercase tracking-[0.18em] text-emerald-100/80">
                   {highlight.eyebrow}
                 </div>
@@ -460,7 +460,7 @@ export function MatchMenu({
             {matches.map((match) => (
               <Link
                 key={match.id}
-                className="group flex min-h-[208px] flex-col rounded-[22px] border border-white/10 bg-white/5 p-4 text-white shadow-none transition-all duration-150 hover:-translate-y-0.5 hover:border-emerald-500/30 hover:shadow-[0_24px_48px_-28px_rgba(16,185,129,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35    "
+                className="group flex min-h-[208px] flex-col rounded-[22px] border border-white/10 bg-white/5 p-4 text-white shadow-none transition-colors duration-150 hover:border-emerald-500/30 hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35"
                 href={match.href}
                 onClick={onNavigate}
               >
