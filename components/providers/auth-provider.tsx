@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import { createClient } from "@/utils/supabase/client";
@@ -11,6 +11,7 @@ interface User {
     name: string;
     balance: number;
     email?: string;
+    avatarUrl?: string | null;
 }
 
 interface AuthContextType {
@@ -27,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
     const locale = useLocale();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     // Map Supabase User to App User
     const mapUser = (su: SupabaseUser | null): User | null => {
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             name: su.user_metadata?.full_name || su.email?.split('@')[0] || "Agent 47",
             email: su.email,
             balance: su.user_metadata?.balance || 2500000,
+            avatarUrl: su.user_metadata?.avatar_url || null,
         };
     };
 
@@ -57,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
 
         return () => subscription.unsubscribe();
-    }, []);
+    }, [supabase]);
 
 
     const logout = async () => {

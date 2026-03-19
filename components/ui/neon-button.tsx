@@ -14,11 +14,11 @@ const NeonButton = React.forwardRef<HTMLButtonElement, ButtonProps>(
         return (
             <Comp
                 className={cn(
-                    "inline-flex h-11 items-center justify-center whitespace-nowrap rounded-full px-6 py-2 text-sm font-semibold uppercase tracking-[0.14em] transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-green/15 disabled:pointer-events-none disabled:opacity-50 font-heading",
+                    "inline-flex h-11 items-center justify-center whitespace-nowrap rounded-full px-6 py-2 text-sm font-semibold tracking-[-0.01em] transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-green/15 disabled:pointer-events-none disabled:opacity-50 font-heading",
                     variant === "neon" &&
-                    "bg-gradient-to-r from-brand-green via-emerald-400 to-brand-blue text-white shadow-[0_20px_50px_-28px_rgba(14,165,233,0.35)] hover:-translate-y-0.5 hover:shadow-[0_24px_60px_-28px_rgba(34,197,94,0.35)] active:scale-[0.99]",
-                    variant === "outline" && "border-2 border-brand-green/60 bg-white text-brand-green shadow-[0_12px_30px_-24px_rgba(15,23,42,0.2)] hover:-translate-y-0.5 hover:bg-brand-green/10 active:scale-[0.99]",
-                    variant === "ghost" && "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
+                    "bg-emerald-700 text-white shadow-[0_14px_28px_-20px_rgba(5,150,105,0.24)] hover:-translate-y-0.5 hover:bg-emerald-600 hover:shadow-[0_16px_32px_-22px_rgba(5,150,105,0.28)] active:scale-[0.99]",
+                    variant === "outline" && "border border-white/10 bg-white/5 text-slate-300 shadow-none hover:-translate-y-0.5 hover:border-emerald-500/20 hover:bg-emerald-500/10 active:scale-[0.99]     ",
+                    variant === "ghost" && "text-slate-300 hover:bg-white/10 hover:text-white   ",
                     className
                 )}
                 ref={ref}

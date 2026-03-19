@@ -79,7 +79,7 @@ WITH CHECK (auth.uid() = user_id);
 -- 6. Insert Seed Data (Tournaments)
 INSERT INTO public.tournaments (name, logo_url) VALUES 
 ('Premier League 24/25', 'https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Premier_League_Logo.svg/1200px-Premier_League_Logo.svg.png'),
-('Champions League', 'https://upload.wikimedia.org/wikipedia/vi/thumb/f/f3/Logo_UEFA_Champions_League.svg/1200px-Logo_UEFA_Champions_League.svg.png');
+('Champions League', 'https://upload.wikimedia.org/wikipedia/commons/0/08/UEFA_Champions_League_logo_2.svg');
 
 -- 7. Insert Seed Data (Matches)
 -- (Copy UUIDs from Tournaments table to link properly in production, 

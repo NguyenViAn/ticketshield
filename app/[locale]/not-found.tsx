@@ -1,45 +1,64 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { NeonButton } from "@/components/ui/neon-button";
-import { ShieldAlert, Info } from "lucide-react";
-import { Link } from "@/i18n/routing";
-import { useEffect, useState } from "react";
+import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { Link } from "@/i18n/routing";
+import { NeonButton } from "@/components/ui/neon-button";
+
 export default function NotFound() {
-    const t = useTranslations("NotFound");
-    return (
-        <main className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-slate-50">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.3 }}
-                className="w-full max-w-lg bg-white/95 backdrop-blur-sm border border-slate-200/80 rounded-2xl p-10 flex flex-col items-center text-center relative z-10 shadow-xl shadow-slate-200/30"
-            >
-                <div className="w-20 h-20 bg-gradient-to-br from-brand-red/15 to-red-500/10 rounded-2xl border border-brand-red/20 flex items-center justify-center mb-8 shadow-sm shadow-brand-red/10">
-                    <ShieldAlert className="w-10 h-10 text-brand-red" />
-                </div>
+  const t = useTranslations("NotFound");
 
-                <h1 className="text-4xl md:text-5xl font-heading font-black text-slate-800 mb-4 uppercase">
-                    {t("title")}
-                </h1>
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#0f172a] px-4 py-12 text-slate-200  ">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-3xl overflow-hidden rounded-[34px] border border-white/10 bg-slate-900/80 shadow-[0_32px_84px_-48px_rgba(0,0,0,0.5)]   "
+      >
+        <div className="grid gap-8 px-6 py-8 sm:px-8 lg:grid-cols-[180px_minmax(0,1fr)] lg:items-center">
+          <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-[30px] border border-rose-500/20 bg-rose-500/10 text-rose-400 lg:mx-0   ">
+            <ShieldAlert className="h-16 w-16" />
+          </div>
 
-                <div className="bg-slate-50 border border-slate-200 text-slate-600 p-4 rounded-xl text-sm font-sans mb-8 w-full text-left flex flex-col gap-2 shadow-inner">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2">
-                        <Info className="w-4 h-4 text-brand-blue" />
-                        <span>{t("system_feedback")}</span>
-                    </div>
-                    <p className="font-semibold text-slate-800">{t("error_404")}</p>
-                    <p className="text-slate-500">{t("description")}</p>
-                </div>
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300">
+              TicketShield routing
+            </div>
+            <h1 className="mt-4 text-5xl font-heading font-black uppercase tracking-[-0.05em] text-white sm:text-6xl ">
+              {t("title")}
+            </h1>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 ">{t("description")}</p>
 
-                <Link href="/">
-                    <NeonButton className="w-full shadow-lg h-12">
-                        {t("btn_home")}
-                    </NeonButton>
-                </Link>
-            </motion.div>
-        </main>
-    );
+            <div className="mt-6 rounded-[24px] border border-white/10 bg-white/5 px-5 py-5  ">
+              <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                {t("system_feedback")}
+              </div>
+              <p className="mt-3 text-lg font-semibold text-white ">{t("error_404")}</p>
+              <p className="mt-2 text-sm leading-7 text-slate-300 ">
+                {t("description")}
+              </p>
+            </div>
+
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <Link href="/">
+                <NeonButton className="h-12 rounded-[18px] px-6 text-xs uppercase tracking-[0.18em]">
+                  {t("btn_home")}
+                </NeonButton>
+              </Link>
+              <button
+                type="button"
+                onClick={() => history.back()}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-[18px] border border-white/10 bg-white/5 px-6 text-sm font-semibold uppercase tracking-[0.18em] text-slate-300 transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-white     "
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </main>
+  );
 }

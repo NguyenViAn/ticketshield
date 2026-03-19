@@ -19,10 +19,14 @@
 
 # production
 /build
+build.log
 
 # misc
 .DS_Store
 *.pem
+lint.json
+lint-results.txt
+lint-summary.txt
 
 # debug
 npm-debug.log*

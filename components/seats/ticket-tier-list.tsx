@@ -1,15 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, XCircle } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { NeonButton } from "@/components/ui/neon-button";
 import { createClient } from "@/utils/supabase/client";
 import { TICKET_TIERS, type TicketTierId } from "@/utils/tickets";
 
+type TierMeta = {
+  badge: string;
+  hint: string;
+  tone: string;
+};
+
+const META_STYLES: Record<TicketTierId, string> = {
+  VIP: "bg-emerald-400/12 text-emerald-300",
+  Premium: "bg-cyan-400/12 text-cyan-300",
+  Standard: "bg-white/10 text-slate-200",
+  Economy: "bg-white/10 text-slate-200",
+};
+
+const CARD_STYLES: Record<TicketTierId, string> = {
+  VIP: "border-emerald-400/18 bg-[linear-gradient(180deg,rgba(7,26,19,0.98),rgba(4,16,12,0.98))] hover:border-emerald-300/30",
+  Premium: "border-cyan-400/14 bg-[linear-gradient(180deg,rgba(7,24,26,0.96),rgba(5,17,19,0.98))] hover:border-cyan-300/24",
+  Standard: "border-white/10 bg-[linear-gradient(180deg,rgba(8,24,19,0.96),rgba(5,17,13,0.96))] hover:border-white/16",
+  Economy: "border-white/10 bg-[linear-gradient(180deg,rgba(8,24,19,0.92),rgba(5,17,13,0.94))] hover:border-white/16",
+};
+
 export function TicketTierList({ matchId, basePrice }: { matchId: string; basePrice: number }) {
-  const [takenCounts, setTakenCounts] = useState<Record<string, number>>({
+  const [takenCounts, setTakenCounts] = useState<Record<TicketTierId, number>>({
     VIP: 0,
     Premium: 0,
     Standard: 0,
@@ -17,58 +37,20 @@ export function TicketTierList({ matchId, basePrice }: { matchId: string; basePr
   });
   const [isLoading, setIsLoading] = useState(true);
   const supabase = createClient();
-  const t = useTranslations("TicketTierList");
   const locale = useLocale();
-  const isVietnamese = locale.startsWith("vi");
-  const selectLabel = isVietnamese ? "CHỌN GHẾ" : "CHOOSE SEAT";
-  const tierMeta: Record<TicketTierId, { badge: string; summary: string; audience: string }> = isVietnamese
-    ? {
-        VIP: {
-          badge: "Tầm nhìn đẹp nhất",
-          summary: "Sát sân, trải nghiệm cao cấp với góc nhìn nổi bật.",
-          audience: "Phù hợp khách muốn vị trí đẹp và dịch vụ tốt hơn.",
-        },
-        Premium: {
-          badge: "Bán chạy",
-          summary: "Cân bằng giữa tầm nhìn rộng và mức giá hợp lý.",
-          audience: "Lý tưởng cho nhóm bạn hoặc gia đình đi cùng nhau.",
-        },
-        Standard: {
-          badge: "Phổ biến",
-          summary: "Theo dõi trọn vẹn bầu không khí trận đấu với mức giá dễ tiếp cận.",
-          audience: "Lựa chọn an toàn cho phần lớn khán giả.",
-        },
-        Economy: {
-          badge: "Giá tốt",
-          summary: "Ngân sách nhẹ hơn nhưng vẫn bao quát nhịp trận và không khí sân.",
-          audience: "Phù hợp khi cần tối ưu chi phí mà vẫn giữ trải nghiệm tốt.",
-        },
-      }
-    : {
-        VIP: {
-          badge: "Best view",
-          summary: "Closest to the pitch with premium matchday comfort.",
-          audience: "Ideal for standout access and stronger hospitality.",
-        },
-        Premium: {
-          badge: "Popular",
-          summary: "Balanced stadium view and pricing for most supporters.",
-          audience: "Great for groups and families attending together.",
-        },
-        Standard: {
-          badge: "Flexible",
-          summary: "Full atmosphere with an accessible and reliable price point.",
-          audience: "A safe choice for the majority of matchgoers.",
-        },
-        Economy: {
-          badge: "Best value",
-          summary: "Budget-friendly entry with wide stadium coverage.",
-          audience: "Built for fast, cost-conscious booking decisions.",
-        },
-      };
+  const t = useTranslations("TicketTierList");
+
+  const tierMeta: Record<TicketTierId, TierMeta> = {
+    VIP: { badge: t("meta.vip_badge"), hint: t("meta.vip_hint"), tone: META_STYLES.VIP },
+    Premium: { badge: t("meta.premium_badge"), hint: t("meta.premium_hint"), tone: META_STYLES.Premium },
+    Standard: { badge: t("meta.standard_badge"), hint: t("meta.standard_hint"), tone: META_STYLES.Standard },
+    Economy: { badge: t("meta.economy_badge"), hint: t("meta.economy_hint"), tone: META_STYLES.Economy },
+  };
 
   useEffect(() => {
-    if (!matchId) return;
+    if (!matchId) {
+      return;
+    }
 
     const fetchTickets = async () => {
       const { data, error } = await supabase
@@ -78,117 +60,102 @@ export function TicketTierList({ matchId, basePrice }: { matchId: string; basePr
         .in("status", ["Valid", "Used"]);
 
       if (!error && data) {
-        const newCounts = { VIP: 0, Premium: 0, Standard: 0, Economy: 0 };
+        const nextCounts: Record<TicketTierId, number> = {
+          VIP: 0,
+          Premium: 0,
+          Standard: 0,
+          Economy: 0,
+        };
+
         data.forEach((ticket) => {
-          if (ticket.seat.startsWith("VIP")) newCounts.VIP += 1;
-          else if (ticket.seat.startsWith("Premium")) newCounts.Premium += 1;
-          else if (ticket.seat.startsWith("Standard")) newCounts.Standard += 1;
-          else if (ticket.seat.startsWith("Economy")) newCounts.Economy += 1;
+          if (ticket.seat.startsWith("VIP")) nextCounts.VIP += 1;
+          else if (ticket.seat.startsWith("Premium")) nextCounts.Premium += 1;
+          else if (ticket.seat.startsWith("Standard")) nextCounts.Standard += 1;
+          else if (ticket.seat.startsWith("Economy")) nextCounts.Economy += 1;
         });
-        setTakenCounts(newCounts);
+
+        setTakenCounts(nextCounts);
       }
 
       setIsLoading(false);
     };
 
     fetchTickets();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchId]);
+  }, [matchId, supabase]);
 
   const handleSelectTier = (tierId: TicketTierId) => {
-    window.dispatchEvent(
-      new CustomEvent("ticketshield:focus-seat-zone", {
-        detail: { tierId, matchId },
-      })
-    );
-
-    document.getElementById("seat-map-panel")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    window.dispatchEvent(new CustomEvent("ticketshield:focus-seat-zone", { detail: { tierId, matchId } }));
+    document.getElementById("seat-map-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {[1, 2, 3, 4].map((item) => (
-          <div key={item} className="h-36 animate-pulse rounded-[24px] bg-slate-100" />
+          <div key={item} className="h-[260px] animate-pulse rounded-[24px] bg-white/5" />
         ))}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
+      <div id="seat-tier-grid" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       {TICKET_TIERS.map((tier) => {
-        const price = basePrice * tier.priceMultiplier;
         const booked = takenCounts[tier.id] || 0;
-        const available = tier.totalSeats - booked;
+        const available = Math.max(tier.totalSeats - booked, 0);
         const isSoldOut = available <= 0;
+        const price = basePrice * tier.priceMultiplier;
 
         return (
           <div
             key={tier.id}
-            className={`group overflow-hidden rounded-[24px] border p-5 transition-all sm:p-6 ${
+            className={`flex min-h-[300px] h-full flex-col rounded-[26px] border px-5 pb-5 pt-4 transition-all ${
               isSoldOut
-                ? "border-slate-200 bg-slate-50"
-                : "border-slate-200 bg-white shadow-sm hover:-translate-y-0.5 hover:border-brand-green/30 hover:shadow-[0_18px_34px_rgba(15,23,42,0.08)]"
+                ? "border-white/8 bg-white/[0.04] opacity-65"
+                : `${CARD_STYLES[tier.id]} shadow-[0_22px_60px_-42px_rgba(0,0,0,0.6)] hover:-translate-y-0.5`
             }`}
           >
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex-1">
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <span
-                    className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] ${
-                      isSoldOut ? "bg-slate-200 text-slate-400" : "bg-brand-blue/10 text-brand-blue"
-                    }`}
-                  >
-                    {tierMeta[tier.id].badge}
-                  </span>
-                  <span
-                    className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-                      isSoldOut ? "bg-slate-200 text-slate-400" : "bg-emerald-50 text-brand-green"
-                    }`}
-                  >
-                    {available} {isVietnamese ? "ghế còn lại" : "seats left"}
-                  </span>
-                </div>
+            <div className="flex min-h-[3.25rem] items-start justify-between gap-3">
+              <span
+                className={`inline-flex min-h-8 items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${tierMeta[tier.id].tone}`}
+              >
+                {tierMeta[tier.id].badge}
+              </span>
+              <span className="max-w-[8.5rem] pt-1 text-right text-[11px] font-semibold uppercase leading-[1.35] tracking-[0.18em] text-slate-400">
+                {tierMeta[tier.id].hint}
+              </span>
+            </div>
 
-                <h3 className={`text-xl font-heading font-black tracking-tight ${isSoldOut ? "text-slate-400" : "text-slate-950"}`}>
-                  {t(`tiers.${tier.id.toLowerCase()}_name`)}
-                </h3>
-                <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">{tierMeta[tier.id].summary}</p>
-                <p className="mt-1 text-sm text-slate-500">{tierMeta[tier.id].audience}</p>
+            <div className="mt-5 text-[2.1rem] font-heading font-black leading-[0.92] tracking-[-0.05em] text-white">
+              {t(`tiers.${tier.id.toLowerCase()}_name`)}
+            </div>
+            <div className="mt-2 min-h-5 text-sm text-slate-400">{t("seats_left", { count: available })}</div>
 
-                {!isSoldOut ? (
-                  <p className="mt-4 flex w-max items-center gap-1 rounded-full bg-brand-green/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-brand-green">
-                    <Check className="h-3 w-3" /> {t("available")}
-                  </p>
-                ) : (
-                  <p className="mt-4 flex w-max items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
-                    <XCircle className="h-3 w-3" /> {t("sold_out")}
-                  </p>
-                )}
-              </div>
-
-              <div className="min-w-[220px] rounded-[22px] border border-slate-200 bg-slate-50 p-4 sm:self-stretch">
-                <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
-                  {isVietnamese ? "Giá khu vực" : "Stand price"}
-                </div>
-                <div className={`mt-2 text-3xl font-heading font-black tracking-tight ${isSoldOut ? "text-slate-400" : "text-brand-blue"}`}>
+            <div className="mt-6 rounded-[22px] border border-white/8 bg-black/12 px-4 py-4">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">{t("from_label")}</div>
+              <div className="mt-2 flex items-end gap-2">
+                <div className="text-[2.2rem] font-heading font-black leading-none tracking-[-0.05em] text-emerald-300">
                   {price.toLocaleString(locale)}
                 </div>
-                <div className="mt-1 text-sm font-semibold text-slate-500">{t("currency_symbol")}</div>
-                <NeonButton
-                  disabled={isSoldOut}
-                  className={`mt-4 h-12 w-full whitespace-nowrap ${
-                    isSoldOut ? "cursor-not-allowed !border-slate-300 !bg-slate-300 !text-slate-500 opacity-50" : ""
-                  }`}
-                  onClick={() => handleSelectTier(tier.id)}
-                >
-                  {isSoldOut ? t("btn_sold_out") : selectLabel}
-                </NeonButton>
+                <div className="pb-1 text-sm font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  {t("currency_symbol")}
+                </div>
               </div>
+            </div>
+
+            <div className="mt-auto pt-6">
+              <NeonButton
+                disabled={isSoldOut}
+                onClick={() => handleSelectTier(tier.id)}
+                className={`h-12 w-full whitespace-nowrap rounded-[18px] ${
+                  isSoldOut ? "cursor-not-allowed !border-white/10 !bg-white/10 !text-slate-500 opacity-60" : ""
+                }`}
+              >
+                <span className="inline-flex items-center gap-2">
+                  {isSoldOut ? t("btn_sold_out") : t("btn_select")}
+                  {!isSoldOut ? <ArrowRight className="h-4 w-4" /> : null}
+                </span>
+              </NeonButton>
             </div>
           </div>
         );

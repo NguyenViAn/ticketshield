@@ -1,369 +1,418 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-
-import { NeonInput } from "@/components/ui/neon-input";
-import { NeonButton } from "@/components/ui/neon-button";
-import { ShieldCheck, User, Lock, Chrome, Fingerprint, ShieldAlert, Cpu, Terminal, KeyRound } from "lucide-react";
-import { Link } from "@/i18n/routing";
-import { Logo } from "@/components/logo";
-import { useState, Suspense } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Suspense, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/components/providers/auth-provider";
+import { useTranslations } from "next-intl";
+import {
+  ArrowRight,
+  Chrome,
+  KeyRound,
+  LoaderCircle,
+  Lock,
+  Mail,
+  ShieldAlert,
+  ShieldCheck,
+  User,
+} from "lucide-react";
+
+import { Logo } from "@/components/logo";
+import { NeonButton } from "@/components/ui/neon-button";
 import { createClient } from "@/utils/supabase/client";
-import { useTranslations, useLocale } from "next-intl";
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
 
 function LoginContent() {
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const supabase = createClient();
-    const { } = useAuth();
-    const t = useTranslations("Login");
-    const locale = useLocale();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const supabase = createClient();
+  const t = useTranslations("Login");
 
-    const [isLoginMode, setIsLoginMode] = useState(true);
-    const [step, setStep] = useState<'credentials' | 'scanning' | 'success'>('credentials');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [name, setName] = useState(''); // Only used in register
-    const [error, setError] = useState('');
-    const [isScanning, setIsScanning] = useState(false);
-    const [showForgotPassword, setShowForgotPassword] = useState(false);
-    const [resetEmail, setResetEmail] = useState('');
-    const [resetSent, setResetSent] = useState(false);
-    const [resetLoading, setResetLoading] = useState(false);
-    const fallbackRedirect = `/${locale}`;
-    const rawRedirect = searchParams.get('redirect');
-    const redirectUrl = rawRedirect && rawRedirect.startsWith('/')
-        ? (rawRedirect === '/' ? fallbackRedirect : rawRedirect)
-        : fallbackRedirect;
-    const profileAfterReset = `/${locale}/profile`;
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [step, setStep] = useState<"credentials" | "scanning" | "success">("credentials");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
-    const handleEmailAuth = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setIsScanning(true);
-        setStep('scanning');
+  const rawRedirect = searchParams.get("redirect");
+  const fallbackRedirect = "/";
+  const redirectUrl =
+    rawRedirect && rawRedirect.startsWith("/") ? (rawRedirect === "/" ? fallbackRedirect : rawRedirect) : fallbackRedirect;
+  const profileAfterReset = "/profile";
 
-        try {
-            if (isLoginMode) {
-                const { error: signInError } = await supabase.auth.signInWithPassword({
-                    email,
-                    password,
-                });
-                if (signInError) throw signInError;
-            } else {
-                const { error: signUpError } = await supabase.auth.signUp({
-                    email,
-                    password,
-                    options: {
-                        data: {
-                            full_name: name,
-                            balance: 2500000 // give initial fake balance
-                        }
-                    }
-                });
-                if (signUpError) throw signUpError;
-                // Note: If email confirmation is enabled on Supabase, this behaves differently.
-                // Assuming it's disabled as per instruction.
-            }
+  const handleEmailAuth = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError("");
+    setStep("scanning");
 
-            // Success animation flow
-            setTimeout(() => {
-                setStep('success');
-                setTimeout(() => {
-                    router.push(redirectUrl);
-                }, 1500);
-            }, 2000);
-
-        } catch (err: any) {
-            setStep('credentials');
-            setIsScanning(false);
-            setError(err.message || t("error_override"));
+    try {
+      if (isLoginMode) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) {
+          throw signInError;
         }
-    };
+      } else {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: name,
+              balance: 2500000,
+            },
+          },
+        });
 
-    const handleGoogleLogin = async () => {
-        setIsScanning(true);
-        try {
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectUrl)}`,
-                },
-            });
-            if (error) throw error;
-        } catch (err: any) {
-            setIsScanning(false);
-            setError(err.message || t("error_oauth"));
+        if (signUpError) {
+          throw signUpError;
         }
-    };
+      }
 
-    const handleForgotPassword = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setResetLoading(true);
-        setError('');
+      setTimeout(() => {
+        setStep("success");
+        setTimeout(() => {
+          router.push(redirectUrl);
+        }, 1200);
+      }, 1200);
+    } catch (err: unknown) {
+      setStep("credentials");
+      setError(getErrorMessage(err, t("error_override")));
+    }
+  };
 
-        try {
-            const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-                redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(profileAfterReset)}`,
-            });
-            if (error) throw error;
-            setResetSent(true);
-        } catch (err: any) {
-            setError(err.message || t("error_override"));
-        } finally {
-            setResetLoading(false);
-        }
-    };
+  const handleGoogleLogin = async () => {
+    try {
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectUrl)}`,
+        },
+      });
 
-    return (
-        <main className="min-h-screen flex items-center justify-center p-4 bg-slate-50 relative overflow-hidden">
-            {/* Background elements */}
-            <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-brand-green/5 blur-[100px] rounded-full translate-x-1/4 -translate-y-1/4" />
-            <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-brand-blue/5 blur-[100px] rounded-full -translate-x-1/4 translate-y-1/4" />
+      if (oauthError) {
+        throw oauthError;
+      }
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, t("error_oauth")));
+    }
+  };
 
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5, type: "spring" }}
-                className="w-full max-w-md relative z-10"
-            >
+  const handleForgotPassword = async () => {
+    setResetLoading(true);
+    setError("");
 
-                <div className="relative p-8 flex flex-col gap-6 bg-white/95 backdrop-blur-sm border border-slate-200/80 rounded-2xl shadow-xl shadow-slate-200/30">
-                    <div className="text-center mb-4 flex flex-col items-center">
-                        <Logo showText={false} iconClassName="w-16 h-16 mb-4" />
-                        <h1 className="text-3xl font-heading font-black text-slate-800 mb-2" dangerouslySetInnerHTML={{ __html: t.raw("title") }}></h1>
-                        <p className="text-sm text-slate-500 font-sans">{t("subtitle")}</p>
-                    </div>
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(profileAfterReset)}`,
+      });
 
-                    {/* Mode Toggle */}
-                    <div className="flex bg-slate-100 rounded-xl p-1 border border-slate-200 mb-2 font-heading tracking-widest text-xs uppercase shadow-inner">
-                        <button
-                            onClick={() => { setIsLoginMode(true); setError(''); }}
-                            className={`flex-1 py-2.5 rounded-lg transition-all font-bold ${isLoginMode ? 'bg-white text-brand-green shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}
-                        >
-                            {t("login_tab")}
-                        </button>
-                        <button
-                            onClick={() => { setIsLoginMode(false); setError(''); }}
-                            className={`flex-1 py-2.5 rounded-lg transition-all font-bold ${!isLoginMode ? 'bg-white text-brand-blue shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}
-                        >
-                            {t("register_tab")}
-                        </button>
-                    </div>
+      if (resetError) {
+        throw resetError;
+      }
 
-                    <div className="flex bg-blue-50 border border-blue-100 rounded-xl p-3 items-center gap-3 text-sm text-brand-blue mb-2 font-medium">
-                        <ShieldCheck className="w-5 h-5 flex-shrink-0" />
-                        <span>{t("security_notice")}</span>
-                    </div>
+      setResetSent(true);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, t("error_override")));
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
-                    {error && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -10 }}
+  return (
+    <main className="page-premium">
+      <div className="mx-auto flex min-h-screen max-w-7xl items-center px-4 py-12 sm:px-6 lg:px-8">
+        <div className="grid w-full gap-8 lg:grid-cols-[minmax(0,1.05fr)_460px] lg:items-center">
+          <section className="hidden lg:block">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/14 bg-emerald-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {t("hero_badge")}
+              </div>
+              <h1 className="mt-6 text-6xl font-heading font-black uppercase leading-[0.92] tracking-[-0.05em] text-white">
+                {t("hero_title")}
+              </h1>
+              <p className="mt-5 max-w-xl text-base leading-8 text-slate-300">{t("subtitle")}</p>
+
+              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                <HeroNote title={t("hero_note_one_title")} description={t("hero_note_one_desc")} />
+                <HeroNote title={t("hero_note_two_title")} description={t("hero_note_two_desc")} />
+              </div>
+            </div>
+          </section>
+
+          <motion.section initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="page-shell">
+            <div className="border-b border-white/10 px-6 py-7 sm:px-8">
+              <div className="flex items-center justify-center lg:justify-start">
+                <Logo showText={false} iconClassName="h-16 w-16" />
+              </div>
+              <h2 className="mt-5 text-center text-3xl font-heading font-black uppercase tracking-[-0.04em] text-white lg:text-left">
+                {t("title")}
+              </h2>
+              <p className="mt-3 text-center text-sm leading-7 text-slate-300 lg:text-left">{t("subtitle")}</p>
+            </div>
+
+            <div className="px-6 py-6 sm:px-8">
+              <div className="mb-5 flex rounded-[18px] border border-white/10 bg-white/5 p-1 text-xs font-bold uppercase tracking-[0.18em]">
+                <button
+                  onClick={() => {
+                    setIsLoginMode(true);
+                    setError("");
+                  }}
+                  className={`flex-1 rounded-[14px] px-4 py-3 transition-colors ${
+                    isLoginMode ? "bg-emerald-400 text-slate-950" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {t("login_tab")}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsLoginMode(false);
+                    setError("");
+                  }}
+                  className={`flex-1 rounded-[14px] px-4 py-3 transition-colors ${
+                    !isLoginMode ? "bg-emerald-400 text-slate-950" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {t("register_tab")}
+                </button>
+              </div>
+
+              <div className="mb-5 flex items-start gap-3 rounded-[20px] border border-emerald-400/14 bg-emerald-400/10 px-4 py-4 text-sm leading-6 text-emerald-200">
+                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+                <span>{t("security_notice")}</span>
+              </div>
+
+              {error ? (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-5 flex items-start gap-3 rounded-[20px] border border-rose-400/20 bg-rose-400/10 px-4 py-4 text-sm leading-6 text-rose-200"
+                >
+                  <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+                  <span>{error}</span>
+                </motion.div>
+              ) : null}
+
+              <AnimatePresence mode="wait">
+                {step === "credentials" ? (
+                  <motion.form
+                    key="credentials"
+                    initial={{ opacity: 0, x: -14 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 14 }}
+                    onSubmit={handleEmailAuth}
+                    className="space-y-4"
+                  >
+                    {!isLoginMode ? (
+                      <Field
+                        icon={<User className="h-5 w-5" />}
+                        placeholder={t("agent_name_placeholder")}
+                        value={name}
+                        onChange={setName}
+                      />
+                    ) : null}
+
+                    <Field
+                      icon={<Mail className="h-5 w-5" />}
+                      placeholder={t("email_placeholder")}
+                      type="email"
+                      value={email}
+                      onChange={setEmail}
+                    />
+
+                    <Field
+                      icon={<Lock className="h-5 w-5" />}
+                      placeholder={t("password_placeholder")}
+                      type="password"
+                      value={password}
+                      onChange={setPassword}
+                    />
+
+                    <button
+                      type="submit"
+                      className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-[18px] bg-emerald-400 px-5 text-sm font-semibold uppercase tracking-[0.2em] text-slate-950 transition-colors hover:bg-emerald-300"
+                    >
+                      {isLoginMode ? t("submit_login") : t("submit_register")}
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+
+                    {isLoginMode ? (
+                      <div className="pt-1 text-center">
+                        {!showForgotPassword ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowForgotPassword(true)}
+                            className="text-sm font-medium text-slate-400 transition-colors hover:text-emerald-400"
+                          >
+                            {t("forgot_password")}
+                          </button>
+                        ) : !resetSent ? (
+                          <motion.div
+                            initial={{ opacity: 0, y: -8 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-sm text-red-600 font-medium"
-                        >
-                            <ShieldAlert className="w-5 h-5 flex-shrink-0" />
-                            <span>{error}</span>
-                        </motion.div>
-                    )}
-
-                    <AnimatePresence mode="wait">
-                        {step === 'credentials' && (
-                            <motion.form
-                                key="credentials"
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 20 }}
-                                onSubmit={handleEmailAuth}
-                                className="space-y-4"
-                            >
-                                {!isLoginMode && (
-                                    <div className="relative">
-                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                                        <NeonInput
-                                            type="text"
-                                            placeholder={t("agent_name_placeholder")}
-                                            className="pl-10 font-medium"
-                                            value={name}
-                                            onChange={(e) => setName(e.target.value)}
-                                            required={!isLoginMode}
-                                        />
-                                    </div>
-                                )}
-                                <div className="relative">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                                    <NeonInput
-                                        type="email"
-                                        placeholder={t("email_placeholder")}
-                                        className="pl-10 font-medium"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        required
-                                    />
-                                </div>
-
-                                <div className="relative">
-                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                                    <NeonInput
-                                        type="password"
-                                        placeholder={t("password_placeholder")}
-                                        className="pl-10 font-medium"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        required
-                                    />
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    className={`relative w-full h-12 rounded-xl text-white font-bold tracking-widest uppercase overflow-hidden group mt-4 shadow-lg transition-all hover:-translate-y-0.5 ${isLoginMode ? 'bg-gradient-to-r from-brand-green to-green-500 hover:shadow-green-500/30' : 'bg-gradient-to-r from-brand-blue to-blue-500 hover:shadow-blue-500/30'}`}
-                                >
-                                    <span className="relative z-10 flex items-center justify-center gap-2">
-                                        <Fingerprint className="w-5 h-5" />
-                                        {isLoginMode ? t("submit_login") : t("submit_register")}
-                                    </span>
-                                </button>
-
-                                {/* Forgot Password */}
-                                {isLoginMode && (
-                                    <div className="text-center">
-                                        {!showForgotPassword ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowForgotPassword(true)}
-                                                className="text-sm text-slate-500 hover:text-brand-blue transition-colors font-medium"
-                                            >
-                                                {t("forgot_password")}
-                                            </button>
-                                        ) : !resetSent ? (
-                                            <motion.div
-                                                initial={{ opacity: 0, y: -10 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                className="bg-slate-50 border border-slate-200 rounded-xl p-4 mt-2"
-                                            >
-                                                <p className="text-sm text-slate-600 mb-3 font-medium">{t("forgot_desc")}</p>
-                                                <div className="flex gap-2">
-                                                    <div className="relative flex-1">
-                                                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                                        <NeonInput
-                                                            type="email"
-                                                            placeholder={t("email_placeholder")}
-                                                            className="pl-9 h-10 text-sm"
-                                                            value={resetEmail}
-                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResetEmail(e.target.value)}
-                                                            required
-                                                        />
-                                                    </div>
-                                                    <NeonButton
-                                                        onClick={handleForgotPassword}
-                                                        disabled={resetLoading || !resetEmail}
-                                                        className="h-10 px-4 text-xs"
-                                                    >
-                                                        {resetLoading ? '...' : t("forgot_btn")}
-                                                    </NeonButton>
-                                                </div>
-                                            </motion.div>
-                                        ) : (
-                                            <motion.div
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                className="bg-green-50 border border-green-200 rounded-xl p-4 mt-2 text-sm text-green-700 font-medium"
-                                            >
-                                                {t("forgot_success")}
-                                            </motion.div>
-                                        )}
-                                    </div>
-                                )}
-                            </motion.form>
-                        )}
-
-                        {step === 'scanning' && (
-                            <motion.div
-                                key="scanning"
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="flex flex-col items-center justify-center py-8 gap-6"
-                            >
-                                <div className="relative w-24 h-24 flex items-center justify-center bg-brand-blue/5 rounded-full border border-brand-blue/20">
-                                    <Cpu className="w-10 h-10 text-brand-blue animate-pulse relative z-10" />
-                                    <div className="absolute top-0 left-0 w-full h-1 bg-brand-blue/50 shadow-sm shadow-blue-500/50 animate-scan rounded-full" />
-                                </div>
-                                <div className="text-center w-full">
-                                    <p className="text-slate-600 font-medium text-sm mb-2 opacity-80 animate-pulse uppercase tracking-wider">
-                                        {t("processing")}
-                                    </p>
-                                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden relative">
-                                        <div
-                                            className="absolute top-0 bottom-0 left-0 w-1/2 bg-gradient-to-r from-brand-blue to-brand-green shadow-sm animate-[shimmer_1.5s_infinite]"
-                                        />
-                                    </div>
-                                    <p className="text-xs text-slate-400 font-mono mt-2 text-right">AES-256</p>
-                                </div>
-                                <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3">
-                                    <ShieldAlert className="w-5 h-5 text-red-500 flex-shrink-0 animate-pulse" />
-                                    <p className="text-xs text-slate-600 font-sans font-medium">
-                                        {t("warning")}
-                                    </p>
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {step === 'success' && (
-                            <motion.div
-                                key="success"
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="flex flex-col items-center justify-center py-8 gap-6"
-                            >
-                                <motion.div
-                                    initial={{ rotate: -90, scale: 0 }}
-                                    animate={{ rotate: 0, scale: 1 }}
-                                    transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                                    className="w-20 h-20 rounded-full border-[3px] border-brand-green flex items-center justify-center bg-green-50 shadow-lg shadow-green-500/20"
-                                >
-                                    <ShieldCheck className="w-10 h-10 text-brand-green" />
-                                </motion.div>
-                                <div className="text-center">
-                                    <h3 className="text-2xl font-black font-heading text-slate-800 mb-2 uppercase">{t("success_title")}</h3>
-                                    <p className="text-slate-500 font-sans text-sm">{t("success_desc")}</p>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-
-                    {step === 'credentials' && (
-                        <>
-                            <div className="relative my-4">
-                                <div className="absolute inset-0 flex items-center">
-                                    <span className="w-full border-t border-slate-200"></span>
-                                </div>
-                                <div className="relative flex justify-center text-xs uppercase font-bold tracking-wider">
-                                    <span className="bg-white px-4 text-slate-400">{t("or_external")}</span>
-                                </div>
+                            className="mt-3 rounded-[22px] border border-white/10 bg-white/5 p-4 text-left"
+                          >
+                            <p className="text-sm leading-6 text-slate-300">{t("forgot_desc")}</p>
+                            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                              <div className="min-w-0 flex-1">
+                                <Field
+                                  icon={<KeyRound className="h-4 w-4" />}
+                                  placeholder={t("email_placeholder")}
+                                  type="email"
+                                  value={resetEmail}
+                                  onChange={setResetEmail}
+                                  compact
+                                />
+                              </div>
+                              <NeonButton
+                                onClick={handleForgotPassword}
+                                disabled={resetLoading || !resetEmail}
+                                className="h-11 rounded-[16px] px-4 text-xs uppercase tracking-[0.18em]"
+                              >
+                                {resetLoading ? "..." : t("forgot_btn")}
+                              </NeonButton>
                             </div>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="mt-3 rounded-[20px] border border-emerald-400/18 bg-emerald-400/10 px-4 py-4 text-sm leading-6 text-emerald-200"
+                          >
+                            {t("forgot_success")}
+                          </motion.div>
+                        )}
+                      </div>
+                    ) : null}
+                  </motion.form>
+                ) : null}
 
-                            <button
-                                type="button"
-                                onClick={handleGoogleLogin}
-                                className="w-full h-12 flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 rounded-xl font-bold tracking-wider uppercase transition-all shadow-sm"
-                            >
-                                <Chrome className="w-5 h-5 text-brand-blue" />
-                                {t("google_connect")}
-                            </button>
-                        </>
-                    )}
-                </div>
-            </motion.div>
-        </main>
-    );
+                {step === "scanning" ? (
+                  <motion.div
+                    key="scanning"
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex flex-col items-center justify-center py-10 text-center"
+                  >
+                    <div className="flex h-24 w-24 items-center justify-center rounded-[28px] border border-emerald-400/18 bg-emerald-400/12">
+                      <LoaderCircle className="h-12 w-12 animate-spin text-emerald-300" />
+                    </div>
+                    <div className="mt-6 text-2xl font-heading font-black uppercase tracking-[-0.03em] text-white">
+                      {t("processing")}
+                    </div>
+                    <p className="mt-3 max-w-sm text-sm leading-7 text-slate-300">{t("warning")}</p>
+                  </motion.div>
+                ) : null}
+
+                {step === "success" ? (
+                  <motion.div
+                    key="success"
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex flex-col items-center justify-center py-10 text-center"
+                  >
+                    <div className="flex h-24 w-24 items-center justify-center rounded-[28px] border border-emerald-400/18 bg-emerald-400/12">
+                      <ShieldCheck className="h-12 w-12 text-emerald-300" />
+                    </div>
+                    <h3 className="mt-6 text-4xl font-heading font-black uppercase tracking-[-0.04em] text-emerald-300">
+                      {t("success_title")}
+                    </h3>
+                    <p className="mt-3 max-w-sm text-sm leading-7 text-slate-300">{t("success_desc")}</p>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+
+              {step === "credentials" ? (
+                <>
+                  <div className="relative my-5">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-white/10" />
+                    </div>
+                    <div className="relative flex justify-center text-xs font-bold uppercase tracking-[0.18em]">
+                      <span className="bg-[#0f172a] px-4 text-slate-400">{t("or_external")}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[18px] border border-white/10 bg-white/5 px-5 text-sm font-semibold uppercase tracking-[0.18em] text-slate-300 transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-white"
+                  >
+                    <Chrome className="h-5 w-5 text-cyan-300" />
+                    {t("google_connect")}
+                  </button>
+                </>
+              ) : null}
+            </div>
+          </motion.section>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function HeroNote({ description, title }: { description: string; title: string }) {
+  return (
+    <div className="rounded-[24px] border border-white/10 bg-white/5 px-5 py-5">
+      <div className="text-sm font-semibold uppercase tracking-[0.16em] text-white">{title}</div>
+      <p className="mt-2 text-sm leading-7 text-slate-300">{description}</p>
+    </div>
+  );
+}
+
+function Field({
+  compact = false,
+  icon,
+  onChange,
+  placeholder,
+  type = "text",
+  value,
+}: {
+  compact?: boolean;
+  icon: ReactNode;
+  onChange: (value: string) => void;
+  placeholder: string;
+  type?: string;
+  value: string;
+}) {
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">{icon}</span>
+      <input
+        type={type}
+        placeholder={placeholder}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required
+        className={`w-full rounded-[18px] border border-white/10 bg-white/5 pl-12 pr-4 text-white outline-none transition-all placeholder:text-slate-500 focus:border-emerald-400/24 focus:ring-4 focus:ring-emerald-500/10 ${
+          compact ? "h-11 text-sm" : "h-14 text-sm"
+        }`}
+      />
+    </div>
+  );
+}
+
+function LoginFallback() {
+  const t = useTranslations("Login");
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#0f172a] text-slate-300">
+      <div className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-300">{t("initializing")}</div>
+    </div>
+  );
 }
 
 export default function LoginPage() {
-    return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-brand-blue animate-pulse font-heading tracking-widest font-bold">INITIALIZING...</div>}>
-            <LoginContent />
-        </Suspense>
-    );
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginContent />
+    </Suspense>
+  );
 }

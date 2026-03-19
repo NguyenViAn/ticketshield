@@ -18,7 +18,6 @@ import {
   ShieldCheck,
   Sparkles,
   Ticket,
-  Wallet,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
@@ -27,8 +26,8 @@ import { MatchCard } from "@/components/matches/match-card";
 import { PromoCard } from "@/components/shared/promo-card";
 import { useFeaturedMatches } from "@/hooks/use-matches";
 import { usePromotions } from "@/hooks/use-promotions";
-import { useAuth } from "@/components/providers/auth-provider";
 import { IntroScreen } from "@/components/shared/intro-screen";
+import { resolveLeagueLogo, resolveTeamLogo } from "@/lib/logo-resolver";
 import { createClient } from "@/utils/supabase/client";
 import type { Match } from "@/types";
 
@@ -44,9 +43,6 @@ const sectionVariants: Variants = {
 const HERO_STADIUM_IMAGE =
   "https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?auto=format&fit=crop&w=1800&q=80";
 
-const DEFAULT_TEAM_BADGE =
-  "https://upload.wikimedia.org/wikipedia/commons/8/8e/Football_pictogram.svg";
-
 type DisplayMatch = {
   id: string;
   home_team: string;
@@ -60,6 +56,7 @@ type DisplayMatch = {
   league: string;
   league_logo: string;
   badge: string;
+  schedule_updating: string;
 };
 
 type InfoCard = {
@@ -76,6 +73,7 @@ type LeagueLink = {
 };
 
 type SectionIcon = React.ComponentType<{ className?: string }>;
+type HomeTranslator = ReturnType<typeof useTranslations>;
 
 type StatItem = {
   label: string;
@@ -87,17 +85,17 @@ type StatItem = {
 
 export default function Home() {
   const locale = useLocale();
+  const tHome = useTranslations("HomePage");
   const { data: featuredMatches, isLoading: matchesLoading } = useFeaturedMatches();
   const { data: promotions, isLoading: promosLoading } = usePromotions();
-  const { isLoggedIn } = useAuth();
   const tPromos = useTranslations("Promotions");
   const [showIntro, setShowIntro] = React.useState(false);
   const [matchCount, setMatchCount] = React.useState(0);
   const [ticketCount, setTicketCount] = React.useState(0);
   const supabase = createClient();
 
-  const copy = getHomeCopy(locale);
-  const displayMatches = getDisplayMatches(featuredMatches, locale);
+  const copy = getHomeCopy(tHome);
+  const displayMatches = getDisplayMatches(featuredMatches, locale, copy);
   const hasFeaturedMatches = (featuredMatches?.length ?? 0) > 0;
 
   React.useEffect(() => {
@@ -138,7 +136,7 @@ export default function Home() {
   const trustStats: StatItem[] = [
     {
       label: copy.trustLabels[0],
-      value: matchCount || 24,
+      value: matchCount || 11,
       suffix: "+",
       detail: copy.trustDetails[0],
       icon: CalendarRange,
@@ -152,16 +150,16 @@ export default function Home() {
     },
     {
       label: copy.trustLabels[2],
-      value: 99.2,
+      value: 100,
       suffix: "%",
       detail: copy.trustDetails[2],
       icon: ShieldCheck,
     },
     {
       label: copy.trustLabels[3],
-      value: isLoggedIn ? copy.memberValue : copy.guestValue,
+      value: 3,
       detail: copy.trustDetails[3],
-      icon: Wallet,
+      icon: Shield,
     },
   ];
 
@@ -177,47 +175,47 @@ export default function Home() {
     <>
       <AnimatePresence>{showIntro ? <IntroScreen onComplete={handleCompleteIntro} /> : null}</AnimatePresence>
 
-      <main className="relative overflow-hidden pb-24">
-        <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[42rem] bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.14),transparent_42%),linear-gradient(180deg,#f8fafc_0%,#f8fafc_62%,#edf7f2_100%)]" />
+      <main className="page-premium relative overflow-hidden pb-20 ">
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_82%_8%,rgba(14,165,233,0.05),transparent_16%),radial-gradient(circle_at_16%_26%,rgba(16,185,129,0.08),transparent_18%)]" />
 
-        <section className="pt-8 sm:pt-10">
+        <section className="border-b border-white/10 pt-4  sm:pt-6 lg:pt-8">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="relative overflow-hidden rounded-[40px] px-6 py-8 shadow-[0_50px_130px_-60px_rgba(15,23,42,0.68)] sm:px-8 sm:py-10 lg:px-12 lg:py-14">
+            <div className="relative overflow-hidden rounded-[36px] border border-white/10 px-4 py-7 shadow-[0_28px_80px_-44px_rgba(0,0,0,0.5)]   sm:px-6 sm:py-10 lg:rounded-[40px] lg:px-10 lg:py-14 xl:px-12 xl:py-16">
               <motion.div
                 aria-hidden="true"
                 className="absolute inset-0 bg-cover bg-center"
                 style={{ backgroundImage: `url(${HERO_STADIUM_IMAGE})` }}
-                animate={{ scale: [1, 1.035, 1], x: [0, -6, 0], y: [0, -4, 0] }}
-                transition={{ duration: 16, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+                animate={{ scale: [1, 1.015, 1] }}
+                transition={{ duration: 18, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
               />
-              <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(2,6,23,0.64),rgba(2,6,23,0.38)_36%,rgba(8,47,73,0.42)_68%,rgba(15,118,110,0.34)_100%)]" />
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08)_0%,rgba(2,6,23,0.2)_28%,rgba(2,6,23,0.5)_62%,rgba(2,6,23,0.82)_100%)]" />
+              <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(2,6,23,0.8),rgba(2,6,23,0.6)_36%,rgba(2,6,23,0.4)_68%,rgba(2,6,23,0.2)_100%)] " />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.2)_0%,rgba(2,6,23,0.4)_30%,rgba(2,6,23,0.6)_62%,#020617_100%)] " />
               <motion.div
                 aria-hidden="true"
-                className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.22),transparent_24%)]"
-                animate={{ opacity: [0.45, 0.8, 0.55], scale: [1, 1.06, 1] }}
-                transition={{ duration: 9, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+                className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.15),transparent_30%)] "
+                animate={{ opacity: [0.22, 0.34, 0.26], scale: [1, 1.03, 1] }}
+                transition={{ duration: 10, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
               />
               <motion.div
                 aria-hidden="true"
-                className="absolute -bottom-16 left-10 h-40 w-40 rounded-full bg-emerald-400/18 blur-3xl"
-                animate={{ x: [0, 12, -6, 0], y: [0, -10, 6, 0], scale: [1, 1.08, 0.98, 1] }}
+                className="absolute -bottom-16 left-10 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl "
+                animate={{ x: [0, 6, 0], y: [0, -6, 0], scale: [1, 1.04, 1] }}
+                transition={{ duration: 14, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+              />
+              <motion.div
+                aria-hidden="true"
+                className="absolute right-[8%] top-[12%] h-28 w-28 rounded-full bg-cyan-700/10 blur-3xl "
+                animate={{ x: [0, -6, 0], y: [0, 6, 0], opacity: [0.28, 0.42, 0.28] }}
                 transition={{ duration: 12, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
               />
               <motion.div
                 aria-hidden="true"
-                className="absolute right-[8%] top-[12%] h-28 w-28 rounded-full bg-cyan-300/14 blur-3xl"
-                animate={{ x: [0, -10, 10, 0], y: [0, 10, -6, 0], opacity: [0.45, 0.82, 0.45] }}
-                transition={{ duration: 11, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
-              />
-              <motion.div
-                aria-hidden="true"
-                className="absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,transparent,rgba(2,6,23,0.5))]"
+                className="absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,transparent,#020617)] "
                 animate={{ opacity: [0.35, 0.55, 0.35] }}
                 transition={{ duration: 8, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
               />
 
-              <div className="relative z-10 grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(22rem,0.95fr)] lg:items-end">
+              <div className="relative z-10 grid gap-7 xl:grid-cols-[minmax(0,1.08fr)_minmax(20rem,0.92fr)] xl:items-end xl:gap-10">
                 <motion.div
                   initial="hidden"
                   animate="show"
@@ -227,56 +225,36 @@ export default function Home() {
                   }}
                   className="max-w-3xl"
                 >
-                  <motion.div variants={sectionVariants} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100 backdrop-blur">
+                  <motion.div variants={sectionVariants} className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.24em] text-emerald-300 backdrop-blur   ">
                     <Sparkles className="h-3.5 w-3.5" />
                     {copy.heroEyebrow}
                   </motion.div>
                   <motion.h1
                     variants={sectionVariants}
-                    className="mt-5 max-w-3xl text-balance text-4xl font-heading font-black leading-[0.96] tracking-[-0.02em] text-white drop-shadow-[0_10px_36px_rgba(2,6,23,0.62)] sm:text-6xl lg:text-7xl"
+                    className="mt-5 max-w-[42rem] text-balance text-4xl font-heading font-black uppercase leading-[0.92] tracking-tight text-white sm:text-5xl lg:text-6xl xl:text-7xl  "
                   >
-                    {copy.heroTitle}
+                    {renderAccentText(copy.heroTitle, copy.heroTitleHighlight, "text-emerald-400")}
                   </motion.h1>
-                  <motion.p variants={sectionVariants} className="mt-4 max-w-2xl text-sm leading-7 text-white/90 drop-shadow-[0_6px_18px_rgba(2,6,23,0.4)] sm:text-base">
+                  <motion.p variants={sectionVariants} className="mt-5 max-w-[38rem] text-sm font-normal leading-7 text-slate-300 sm:text-base  ">
                     {copy.heroDescription}
                   </motion.p>
 
-                  <motion.div variants={sectionVariants} className="mt-6 flex flex-wrap gap-3">
-                    {copy.heroHighlights.map((highlight) => (
-                      <motion.span
-                        key={highlight}
-                        whileHover={{ y: -2, scale: 1.02 }}
-                        transition={{ duration: 0.2 }}
-                        className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/10 px-3 py-2 text-sm text-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur"
-                      >
-                        <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-                        {highlight}
-                      </motion.span>
-                    ))}
+                  <motion.div variants={sectionVariants} className="mt-4">
+                    <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300   ">
+                      {copy.heroBadge}
+                    </span>
                   </motion.div>
 
-                  <motion.div variants={sectionVariants} className="mt-8 flex flex-col gap-3 sm:flex-row">
-                    <Link
-                      href="/matches"
-                      className="inline-flex h-12 items-center justify-center rounded-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 px-6 text-sm font-semibold text-white shadow-[0_20px_50px_-24px_rgba(16,185,129,0.55)] transition-transform duration-200 hover:-translate-y-0.5"
-                    >
+                  <motion.div variants={sectionVariants} className="mt-7 flex flex-col gap-3 md:flex-row">
+                    <Link href="/matches" className="inline-flex h-12 items-center justify-center rounded-[16px] bg-emerald-600 px-6 text-sm font-black uppercase tracking-[0.18em] text-white shadow-[0_14px_30px_-22px_rgba(16,185,129,0.3)] transition-transform duration-200 hover:-translate-y-0.5 hover:bg-emerald-500">
                       {copy.primaryCta}
                     </Link>
-                    {!isLoggedIn ? (
-                      <Link
-                        href="/login"
-                        className="inline-flex h-12 items-center justify-center rounded-full border border-white/20 bg-white/12 px-6 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/18"
-                      >
-                        {copy.secondaryCta}
-                      </Link>
-                    ) : (
-                      <Link
-                        href="/history"
-                        className="inline-flex h-12 items-center justify-center rounded-full border border-white/20 bg-white/12 px-6 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/18"
-                      >
-                        {copy.loggedInCta}
-                      </Link>
-                    )}
+                    <Link
+                      href="/#security-features"
+                      className="inline-flex h-12 items-center justify-center rounded-[16px] border border-white/10 bg-white/5 px-6 text-sm font-semibold uppercase tracking-[0.14em] text-white backdrop-blur transition-colors hover:bg-white/10"
+                    >
+                      {copy.secondaryCta}
+                    </Link>
                   </motion.div>
                 </motion.div>
 
@@ -284,14 +262,14 @@ export default function Home() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: 0.12 }}
-                  className="rounded-[32px] border border-white/20 bg-white/80 p-5 shadow-[0_36px_90px_-46px_rgba(15,23,42,0.65)] backdrop-blur-2xl sm:p-6"
+                  className="rounded-[28px] border border-white/10 bg-black/20 p-4 shadow-[0_22px_52px_-34px_rgba(0,0,0,0.5)] backdrop-blur-2xl    sm:rounded-[32px] sm:p-6"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <div className="text-sm font-semibold tracking-wide text-slate-950">{copy.heroPanelTitle}</div>
-                      <div className="mt-1 text-sm leading-6 text-slate-600">{copy.heroPanelDescription}</div>
+                      <div className="text-sm font-semibold uppercase tracking-[0.18em] text-white ">{copy.heroPanelTitle}</div>
+                      <div className="mt-1 text-sm leading-6 text-slate-400 ">{copy.heroPanelDescription}</div>
                     </div>
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300  ">
                       <Shield className="h-5 w-5" />
                     </span>
                   </div>
@@ -305,10 +283,10 @@ export default function Home() {
                       <motion.div key={link.label} whileHover={{ y: -2, scale: 1.01 }} transition={{ duration: 0.2 }}>
                         <Link
                           href={link.href}
-                          className="block rounded-[22px] border border-white/70 bg-white/70 p-4 shadow-[0_20px_50px_-42px_rgba(15,23,42,0.4)] transition-all duration-300 hover:border-emerald-200 hover:bg-white/85 hover:shadow-[0_24px_60px_-40px_rgba(16,185,129,0.2)]"
+                          className="block rounded-[22px] border border-white/10 bg-white/5 p-4 shadow-[0_12px_28px_-22px_rgba(0,0,0,0.3)] transition-all duration-300 hover:border-white/20 hover:bg-white/10     "
                         >
-                          <div className="text-sm font-semibold text-slate-900">{link.label}</div>
-                          <div className="mt-1 text-sm text-slate-600">{link.note}</div>
+                          <div className="text-sm font-semibold text-white ">{link.label}</div>
+                          <div className="mt-1 text-sm text-slate-400 ">{link.note}</div>
                         </Link>
                       </motion.div>
                     ))}
@@ -319,9 +297,20 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="relative z-10 -mt-6 sm:-mt-8">
+        <section className="relative z-10 border-b border-white/10 py-4 ">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-8 gap-y-2 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:px-6 lg:px-8 ">
+            {trendingMatches.map((match) => (
+              <span key={`ticker-${match.id}`} className="inline-flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 " />
+                {match.home_team} vs {match.away_team}
+              </span>
+            ))}
+          </div>
+        </section>
+
+        <section className="relative z-10 pt-8">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {trustStats.map((stat, index) => (
                 <motion.div
                   key={stat.label}
@@ -330,30 +319,30 @@ export default function Home() {
                   viewport={{ once: true, margin: "-80px" }}
                   transition={{ duration: 0.35, delay: index * 0.06 }}
                   whileHover={{ y: -4, scale: 1.015 }}
-                  className="rounded-[28px] border border-white/75 bg-white/94 p-5 shadow-[0_24px_60px_-44px_rgba(15,23,42,0.45)] backdrop-blur-xl transition-all duration-300 hover:border-emerald-200 hover:shadow-[0_28px_75px_-42px_rgba(16,185,129,0.2)]"
+                  className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.8),rgba(2,6,23,0.95))] p-5 shadow-[0_16px_40px_-28px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-300 hover:border-white/20 hover:shadow-[0_20px_48px_-32px_rgba(0,0,0,0.6)]     "
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{stat.label}</div>
-                      <div className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
+                      <div className="mt-3 text-3xl font-semibold tracking-tight text-white ">
                         <CountUpValue suffix={stat.suffix} value={stat.value} />
                       </div>
                     </div>
-                    <span className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-                      <span className="absolute inset-0 rounded-2xl bg-emerald-400/10 blur-md" />
+                    <span className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300  ">
+                      <span className="absolute inset-0 rounded-2xl bg-emerald-500/20 blur-md " />
                       <stat.icon className="h-5 w-5" />
                     </span>
                   </div>
-                  <div className="mt-3 text-sm leading-6 text-slate-500">{stat.detail}</div>
+                  <div className="mt-3 text-sm leading-6 text-slate-400 ">{stat.detail}</div>
                 </motion.div>
               ))}
             </div>
           </div>
         </section>
 
-        <div className="mx-auto mt-8 max-w-7xl space-y-0 px-4 sm:px-6 lg:px-8 [&>section]:py-16">
+        <div className="mx-auto mt-8 max-w-7xl space-y-0 px-4 sm:px-6 lg:px-8 [&>section]:py-14">
           <motion.section
-            className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,19rem)]"
+            className="grid gap-6 rounded-[36px] border border-transparent bg-transparent px-0 py-0 shadow-none xl:grid-cols-[minmax(0,1fr)_minmax(18rem,19rem)]     "
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, margin: "-80px" }}
@@ -362,23 +351,29 @@ export default function Home() {
             <div>
               <SectionHeader
                 eyebrow={copy.trendingEyebrow}
+                highlight={copy.sectionHighlights.trending}
                 icon={CalendarClock}
                 title={copy.trendingTitle}
                 description={copy.trendingDescription}
                 actionHref="/matches"
                 actionLabel={copy.viewAll}
               />
-              <div className="mt-6 grid gap-4 lg:grid-cols-3">
+              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {matchesLoading ? (
                   [...Array(3)].map((_, index) => <MatchCardSkeleton key={`trending-skeleton-${index}`} compact />)
                 ) : trendingMatches.length > 0 ? (
                   trendingMatches.map((match) => (
                     <motion.div key={match.id} variants={sectionVariants} whileHover={{ y: -2 }}>
-                      <TrendingMatchCard locale={locale} match={match} />
+                      <TrendingMatchCard
+                        actionLabel={copy.trendingAction}
+                        locale={locale}
+                        match={match}
+                        protectionLabel={copy.protectionLabel}
+                      />
                     </motion.div>
                   ))
                 ) : (
-                  <div className="lg:col-span-3">
+                  <div className="md:col-span-2 xl:col-span-3">
                     <EmptyMatchesState
                       actionHref="/matches"
                       actionLabel={copy.viewAll}
@@ -390,16 +385,16 @@ export default function Home() {
               </div>
             </div>
 
-            <motion.aside variants={sectionVariants} className="rounded-[32px] border border-emerald-200/20 bg-[linear-gradient(160deg,#06202c_0%,#0f172a_35%,#0f766e_100%)] p-6 text-white shadow-[0_32px_80px_-46px_rgba(15,23,42,0.6)]">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100">
+            <motion.aside variants={sectionVariants} className="rounded-[32px] border border-slate-900/10 bg-[linear-gradient(160deg,#162234_0%,#111c2c_40%,#17283a_100%)] p-6 text-white shadow-[0_22px_52px_-34px_rgba(15,23,42,0.28)]  ">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-200">
                 <Clock3 className="h-3.5 w-3.5" />
                 {copy.trendingSidebarEyebrow}
               </div>
               <div className="mt-5 text-2xl font-semibold leading-tight">{copy.trendingSidebarTitle}</div>
-              <div className="mt-3 text-sm leading-6 text-slate-200">{copy.trendingSidebarDescription}</div>
+              <div className="mt-3 text-sm leading-6 text-slate-300/92">{copy.trendingSidebarDescription}</div>
               <div className="mt-6 space-y-3">
                 {copy.trendingSidebarPoints.map((point) => (
-                  <div key={point} className="rounded-[22px] border border-white/10 bg-white/8 px-4 py-3 text-sm text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                  <div key={point} className="rounded-[22px] border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
                     {point}
                   </div>
                 ))}
@@ -408,33 +403,34 @@ export default function Home() {
           </motion.section>
 
           <motion.section
-            className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]"
+            id="security-features"
+            className="grid gap-6 rounded-[36px] border border-transparent bg-transparent px-0 py-0 shadow-none xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]     "
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, margin: "-80px" }}
             variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }}
           >
-            <motion.div variants={sectionVariants} className="rounded-[32px] border border-slate-200/80 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(15,23,42,0.45)]">
-              <SectionHeader eyebrow={copy.howEyebrow} icon={QrCode} title={copy.howTitle} description={copy.howDescription} />
+            <motion.div variants={sectionVariants} className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-none   ">
+              <SectionHeader eyebrow={copy.howEyebrow} highlight={copy.sectionHighlights.how} icon={QrCode} title={copy.howTitle} description={copy.howDescription} />
               <div className="mt-6 space-y-4">
                 {copy.howSteps.map((step, index) => (
                   <motion.div
                     key={step.title}
                     variants={sectionVariants}
                     whileHover={{ y: -3, scale: 1.01 }}
-                    className="rounded-[24px] border border-slate-200/80 bg-slate-50/80 p-4 transition-all duration-300 hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-[0_20px_50px_-36px_rgba(16,185,129,0.18)]"
+                    className="rounded-[24px] border border-white/10 bg-white/5 p-4 transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-none   "
                   >
                     <div className="flex items-start gap-4">
-                      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-700 shadow-sm">
-                        <span className="absolute inset-0 rounded-2xl bg-emerald-400/10 blur-md" />
+                      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300 shadow-none   ">
+                        <span className="absolute inset-0 rounded-2xl bg-emerald-500/10 blur-sm " />
                         <step.icon className="h-5 w-5" />
                       </div>
                       <div>
-                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 ">
                           {copy.stepLabel} {index + 1}
                         </div>
-                        <div className="mt-1 text-lg font-semibold text-slate-900">{step.title}</div>
-                        <div className="mt-2 text-sm leading-6 text-slate-500">{step.description}</div>
+                        <div className="mt-1 text-lg font-semibold text-white ">{step.title}</div>
+                        <div className="mt-2 text-sm leading-6 text-slate-400 ">{step.description}</div>
                       </div>
                     </div>
                   </motion.div>
@@ -442,60 +438,60 @@ export default function Home() {
               </div>
             </motion.div>
 
-            <motion.div variants={sectionVariants} className="rounded-[32px] border border-emerald-100/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(236,253,245,0.88))] p-6 shadow-[0_24px_60px_-44px_rgba(15,23,42,0.45)]">
-              <SectionHeader eyebrow={copy.securityEyebrow} icon={ShieldCheck} title={copy.securityTitle} description={copy.securityDescription} />
+            <motion.div variants={sectionVariants} className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-none   ">
+              <SectionHeader eyebrow={copy.securityEyebrow} highlight={copy.sectionHighlights.security} icon={ShieldCheck} title={copy.securityTitle} description={copy.securityDescription} />
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 {copy.securityCards.map((card) => (
                   <motion.div
                     key={card.title}
                     variants={sectionVariants}
                     whileHover={{ y: -3, scale: 1.01 }}
-                    className="rounded-[24px] border border-emerald-100/70 bg-white p-5 transition-all duration-300 hover:border-emerald-200 hover:shadow-[0_20px_50px_-36px_rgba(16,185,129,0.18)]"
+                    className="rounded-[24px] border border-white/10 bg-white/5 p-5 transition-all duration-300 hover:border-white/20 hover:bg-white/10  "
                   >
-                    <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-                      <span className="absolute inset-0 rounded-2xl bg-emerald-400/10 blur-md" />
+                    <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300  ">
+                      <span className="absolute inset-0 rounded-2xl bg-emerald-500/10 blur-sm " />
                       <card.icon className="h-5 w-5" />
                     </div>
-                    <div className="mt-4 text-lg font-semibold text-slate-900">{card.title}</div>
-                    <div className="mt-2 text-sm leading-6 text-slate-500">{card.description}</div>
+                    <div className="mt-4 text-lg font-semibold text-white ">{card.title}</div>
+                    <div className="mt-2 text-sm leading-6 text-slate-400 ">{card.description}</div>
                   </motion.div>
                 ))}
               </div>
-              <div className="mt-6 rounded-[26px] border border-slate-200/80 bg-slate-900 p-5 text-white">
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200">{copy.securityFootnoteEyebrow}</div>
-                <div className="mt-2 text-xl font-semibold">{copy.securityFootnoteTitle}</div>
-                <div className="mt-2 text-sm leading-6 text-slate-300">{copy.securityFootnoteDescription}</div>
+              <div className="mt-6 rounded-[26px] border border-white/10 bg-white/5 p-5 text-slate-300   ">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400 ">{copy.securityFootnoteEyebrow}</div>
+                <div className="mt-2 text-xl font-semibold text-white">{copy.securityFootnoteTitle}</div>
+                <div className="mt-2 text-sm leading-6 text-slate-400 ">{copy.securityFootnoteDescription}</div>
               </div>
             </motion.div>
           </motion.section>
 
           <motion.section
-            className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]"
+            className="grid gap-6 rounded-[36px] border border-transparent bg-transparent px-0 py-0 shadow-none lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]     "
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, margin: "-80px" }}
             variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }}
           >
-            <motion.div variants={sectionVariants} className="rounded-[32px] border border-slate-200/80 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(15,23,42,0.45)]">
-              <SectionHeader eyebrow={copy.cityEyebrow} icon={MapPin} title={copy.cityTitle} description={copy.cityDescription} />
+            <motion.div variants={sectionVariants} className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-none   ">
+              <SectionHeader eyebrow={copy.cityEyebrow} highlight={copy.sectionHighlights.city} icon={MapPin} title={copy.cityTitle} description={copy.cityDescription} />
               <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {copy.popularCities.map((city) => (
                   <motion.div key={city.label} variants={sectionVariants} whileHover={{ y: -3, scale: 1.01 }}>
                     <Link
                       href={city.href}
-                      className="group block rounded-[24px] border border-slate-200/80 bg-slate-50/80 p-4 transition-all duration-300 hover:border-emerald-200 hover:bg-emerald-50/50 hover:shadow-[0_20px_50px_-36px_rgba(16,185,129,0.18)]"
+                      className="group block rounded-[24px] border border-white/10 bg-white/5 p-4 transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-none   "
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <div className="text-lg font-semibold text-slate-900">{city.label}</div>
-                          <div className="mt-2 text-sm leading-6 text-slate-500">{city.note}</div>
+                          <div className="text-lg font-semibold text-white ">{city.label}</div>
+                          <div className="mt-2 text-sm leading-6 text-slate-400 ">{city.note}</div>
                         </div>
-                        <span className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-emerald-700 shadow-sm">
-                          <span className="absolute inset-0 rounded-2xl bg-emerald-400/10 blur-md" />
+                        <span className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300 shadow-none   ">
+                          <span className="absolute inset-0 rounded-2xl bg-emerald-500/10 blur-sm " />
                           <MapPin className="h-5 w-5" />
                         </span>
                       </div>
-                      <div className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-700 group-hover:text-emerald-700">
+                      <div className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-400 group-hover:text-emerald-400  ">
                         {copy.cityCta}
                         <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                       </div>
@@ -505,24 +501,24 @@ export default function Home() {
               </div>
             </motion.div>
 
-            <motion.div variants={sectionVariants} className="rounded-[32px] border border-slate-200/80 bg-white p-6 shadow-[0_24px_60px_-44px_rgba(15,23,42,0.45)]">
-              <SectionHeader eyebrow={copy.leagueEyebrow} icon={BadgeCheck} title={copy.leagueTitle} description={copy.leagueDescription} />
+            <motion.div variants={sectionVariants} className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-none   ">
+              <SectionHeader eyebrow={copy.leagueEyebrow} highlight={copy.sectionHighlights.league} icon={BadgeCheck} title={copy.leagueTitle} description={copy.leagueDescription} />
               <div className="mt-6 space-y-3">
                 {copy.featuredLeagues.map((league) => (
                   <motion.div key={league.label} variants={sectionVariants} whileHover={{ y: -3, scale: 1.01 }}>
                     <Link
                       href={league.href}
-                      className="group flex items-center gap-4 rounded-[24px] border border-slate-200/80 bg-slate-50/80 px-4 py-4 transition-all duration-300 hover:border-emerald-200 hover:bg-emerald-50/50 hover:shadow-[0_20px_50px_-36px_rgba(16,185,129,0.18)]"
+                      className="group flex items-center gap-4 rounded-[24px] border border-white/10 bg-white/5 px-4 py-4 transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:shadow-none   "
                     >
-                      <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-[0_14px_28px_-24px_rgba(15,23,42,0.45)]">
-                        <span className="absolute inset-0 rounded-2xl bg-emerald-400/12 blur-md" />
+                      <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-800/80 shadow-[0_14px_28px_-24px_rgba(0,0,0,0.45)]  ">
+                        <span className="absolute inset-0 rounded-2xl bg-emerald-500/10 blur-sm " />
                         <Image src={league.logo} alt={league.label} width={34} height={34} className="h-8 w-8 object-contain" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold text-slate-900">{league.label}</div>
-                        <div className="mt-1 text-sm text-slate-500">{league.note}</div>
+                        <div className="truncate text-sm font-semibold text-white ">{league.label}</div>
+                        <div className="mt-1 text-sm text-slate-400 ">{league.note}</div>
                       </div>
-                      <ArrowRight className="h-4 w-4 text-slate-400 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-emerald-700" />
+                      <ArrowRight className="h-4 w-4 text-slate-400 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-emerald-400  " />
                     </Link>
                   </motion.div>
                 ))}
@@ -531,6 +527,7 @@ export default function Home() {
           </motion.section>
 
           <motion.section
+            className="rounded-[36px] border border-transparent bg-transparent px-0 py-0 shadow-none   "
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, margin: "-80px" }}
@@ -538,6 +535,7 @@ export default function Home() {
           >
             <SectionHeader
               eyebrow={copy.featuredEyebrow}
+              highlight={copy.sectionHighlights.featured}
               icon={Ticket}
               title={copy.featuredTitle}
               description={copy.featuredDescription}
@@ -582,16 +580,17 @@ export default function Home() {
 
           <motion.section
             id="promotions"
+            className="rounded-[36px] border border-transparent bg-transparent px-0 py-0 shadow-none   "
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, margin: "-80px" }}
             variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }}
           >
-            <SectionHeader eyebrow={copy.promoEyebrow} icon={Percent} title={copy.promoTitle} description={tPromos("description")} />
+            <SectionHeader eyebrow={copy.promoEyebrow} highlight={copy.sectionHighlights.promo} icon={Percent} title={copy.promoTitle} description={tPromos("description")} />
             {promosLoading ? (
               <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                 {[...Array(3)].map((_, index) => (
-                  <div key={index} className="h-56 rounded-[28px] border border-slate-200/80 bg-[linear-gradient(180deg,#ffffff,#ecfdf5)] animate-pulse" />
+                  <div key={index} className="h-56 animate-pulse rounded-[28px] border border-white/10 bg-white/5  " />
                 ))}
               </div>
             ) : promotions.length > 0 ? (
@@ -609,7 +608,7 @@ export default function Home() {
                 ))}
               </div>
             ) : (
-              <div className="mt-6 rounded-[28px] border border-dashed border-slate-300 bg-[linear-gradient(180deg,#ffffff,#f0fdf4)] px-6 py-10 text-center text-sm text-slate-500">
+              <div className="mt-6 rounded-[28px] border border-dashed border-white/20 bg-white/5 px-6 py-10 text-center text-sm text-slate-400   ">
                 {copy.promoEmpty}
               </div>
             )}
@@ -625,6 +624,7 @@ function SectionHeader({
   actionLabel,
   description,
   eyebrow,
+  highlight,
   icon: Icon = Sparkles,
   title,
 }: {
@@ -632,23 +632,26 @@ function SectionHeader({
   actionLabel?: string;
   description: string;
   eyebrow: string;
+  highlight?: string;
   icon?: SectionIcon;
   title: string;
 }) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="max-w-2xl">
-        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-[linear-gradient(180deg,rgba(236,253,245,1),rgba(240,249,255,1))] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700 shadow-[0_8px_24px_-18px_rgba(16,185,129,0.35)]">
+        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300 shadow-none    ">
           <Icon className="h-3.5 w-3.5" />
           {eyebrow}
         </div>
-        <h2 className="mt-4 text-3xl font-heading font-black tracking-[0.01em] text-slate-900 sm:text-4xl">{title}</h2>
-        <p className="mt-3 text-sm leading-7 text-slate-500 sm:text-base">{description}</p>
+        <h2 className="mt-4 text-3xl font-heading font-black uppercase italic tracking-tight text-white sm:text-4xl ">
+          {renderAccentText(title, highlight, "text-emerald-300")}
+        </h2>
+        <p className="mt-3 text-sm font-normal leading-7 text-slate-400 sm:text-base ">{description}</p>
       </div>
       {actionHref && actionLabel ? (
         <Link
           href={actionHref}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 transition-colors hover:text-emerald-700"
+          className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-slate-400 transition-colors hover:text-emerald-400  "
         >
           {actionLabel}
           <ArrowRight className="h-4 w-4" />
@@ -661,28 +664,28 @@ function SectionHeader({
 function MatchCardSkeleton({ compact = false }: { compact?: boolean }) {
   return (
     <div
-      className={`overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-[0_24px_60px_-44px_rgba(15,23,42,0.45)] ${
+      className={`overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.8),rgba(2,6,23,0.95))] shadow-[0_16px_40px_-28px_rgba(0,0,0,0.5)]    ${
         compact ? "min-h-[18rem]" : "min-h-[24rem]"
       }`}
     >
       <div className={`animate-pulse ${compact ? "h-full" : "h-full"}`}>
-        <div className="h-28 bg-[linear-gradient(90deg,#dcfce7,#f8fafc,#dbeafe)]" />
+        <div className="h-28 bg-[linear-gradient(90deg,rgba(30,41,59,0.7),rgba(15,23,42,0.96),rgba(30,41,59,0.42))] " />
         <div className="space-y-4 p-5">
           <div className="flex items-center justify-between gap-3">
-            <div className="h-5 w-28 rounded-full bg-slate-200" />
-            <div className="h-5 w-16 rounded-full bg-slate-200" />
+            <div className="h-5 w-28 rounded-full bg-slate-800 " />
+            <div className="h-5 w-16 rounded-full bg-slate-800 " />
           </div>
           <div className="flex items-center justify-center gap-4 pt-3">
-            <div className="h-16 w-16 rounded-2xl bg-slate-200" />
-            <div className="h-8 w-10 rounded-full bg-slate-200" />
-            <div className="h-16 w-16 rounded-2xl bg-slate-200" />
+            <div className="h-16 w-16 rounded-2xl bg-slate-800 " />
+            <div className="h-8 w-10 rounded-full bg-slate-800 " />
+            <div className="h-16 w-16 rounded-2xl bg-slate-800 " />
           </div>
           <div className="space-y-3 pt-3">
-            <div className="h-5 w-3/4 rounded-full bg-slate-200" />
-            <div className="h-4 w-2/3 rounded-full bg-slate-200" />
-            <div className="h-4 w-1/2 rounded-full bg-slate-200" />
+            <div className="h-5 w-3/4 rounded-full bg-slate-800 " />
+            <div className="h-4 w-2/3 rounded-full bg-slate-800 " />
+            <div className="h-4 w-1/2 rounded-full bg-slate-800 " />
           </div>
-          <div className="h-11 rounded-full bg-slate-200" />
+          <div className="h-11 rounded-full bg-slate-800 " />
         </div>
       </div>
     </div>
@@ -701,15 +704,15 @@ function EmptyMatchesState({
   title: string;
 }) {
   return (
-    <div className="rounded-[32px] border border-dashed border-slate-300 bg-white/95 px-6 py-12 text-center shadow-[0_24px_60px_-44px_rgba(15,23,42,0.25)]">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+    <div className="rounded-[32px] border border-dashed border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.8),rgba(2,6,23,0.95))] px-6 py-12 text-center shadow-none   ">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300  ">
         <Ticket className="h-6 w-6" />
       </div>
-      <div className="mt-4 text-xl font-semibold text-slate-900">{title}</div>
-      <div className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">{description}</div>
+      <div className="mt-4 text-xl font-semibold text-white ">{title}</div>
+      <div className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-400 ">{description}</div>
       <Link
         href={actionHref}
-        className="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 px-5 text-sm font-semibold text-white shadow-[0_20px_50px_-28px_rgba(16,185,129,0.45)] transition-transform duration-200 hover:-translate-y-0.5"
+        className="mt-6 inline-flex h-11 items-center justify-center bg-emerald-700 px-5 text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_14px_28px_-22px_rgba(5,150,105,0.26)] transition-transform duration-200 hover:-translate-y-0.5 hover:bg-emerald-600"
       >
         {actionLabel}
       </Link>
@@ -762,45 +765,70 @@ function CountUpValue({ suffix = "", value }: { suffix?: string; value: number |
   );
 }
 
-function TrendingMatchCard({ locale, match }: { locale: string; match: DisplayMatch }) {
-  const actionLabel = locale === "vi" ? "Xem vé" : "Explore tickets";
+function TrendingMatchCard({
+  actionLabel,
+  locale,
+  match,
+  protectionLabel,
+}: {
+  actionLabel: string;
+  locale: string;
+  match: DisplayMatch;
+  protectionLabel: string;
+}) {
   return (
     <Link
       href={`/matches?q=${encodeURIComponent(match.home_team)}`}
-      className="group flex h-full flex-col rounded-[28px] border border-slate-200/80 bg-white p-5 shadow-[0_24px_60px_-44px_rgba(15,23,42,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-[0_28px_64px_-40px_rgba(16,185,129,0.18)]"
+      className="group flex h-full flex-col rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.84),rgba(2,6,23,0.98))] p-5 shadow-[0_18px_42px_-28px_rgba(0,0,0,0.38)] transition-all duration-200 hover:-translate-y-1 hover:border-emerald-300/18 hover:shadow-[0_24px_56px_-30px_rgba(0,0,0,0.5)]"
     >
-      <div className="flex items-center justify-between gap-3">
-        <span className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
-          <Ticket className="h-3.5 w-3.5" />
-          {match.badge}
-        </span>
-        <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
-          <Image src={match.league_logo} alt={match.league} width={14} height={14} className="h-3.5 w-3.5 object-contain" />
-          {match.league}
+      <div className="flex items-start justify-end">
+        <span className="inline-flex max-w-full items-center gap-3 rounded-[20px] border border-white/8 bg-white/[0.05] px-3.5 py-3 text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/8 bg-white/[0.08]">
+            <Image src={match.league_logo} alt={match.league} width={22} height={22} className="h-5.5 w-5.5 object-contain" />
+          </span>
+          <span className="flex min-w-0 flex-col text-left">
+            <span className="text-[9px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+              {locale.startsWith("vi") ? "Giải đấu" : "League"}
+            </span>
+            <span className="mt-1 line-clamp-2 text-[12px] font-bold uppercase leading-[1.25] tracking-[0.12em] text-slate-100">
+              {match.league}
+            </span>
+          </span>
         </span>
       </div>
-      <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-        <TeamChip logo={match.home_logo} team={match.home_team} />
-        <span className="rounded-full border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-red-500">
-          VS
-        </span>
-        <TeamChip logo={match.away_logo} team={match.away_team} />
+
+      <div className="mt-5 rounded-[24px] border border-white/8 bg-white/[0.03] px-4 py-4">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+          <TeamChip logo={match.home_logo} team={match.home_team} />
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-red-500/20 bg-red-500/10 text-[10px] font-semibold uppercase tracking-[0.18em] text-red-400">
+            VS
+          </span>
+          <TeamChip logo={match.away_logo} team={match.away_team} />
+        </div>
       </div>
-      <div className="mt-5 space-y-2">
-        <div className="text-lg font-semibold text-slate-900">
+
+      <div className="mt-5 flex-1 space-y-3">
+        <div className="text-[1.65rem] font-heading font-black leading-[1.02] tracking-[-0.04em] text-white">
           {match.home_team} vs {match.away_team}
         </div>
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <CalendarClock className="h-4 w-4 text-cyan-700" />
-          {formatMatchLabel(match.date, locale)}
+        <div className="flex items-center gap-2 text-sm text-slate-300">
+          <CalendarClock className="h-4 w-4 text-cyan-300" />
+          {formatMatchLabel(match.date, locale, match.schedule_updating)}
         </div>
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <MapPin className="h-4 w-4 text-emerald-700" />
+        <div className="flex items-center gap-2 text-sm text-slate-300">
+          <MapPin className="h-4 w-4 text-emerald-300" />
           <span className="truncate">{match.stadium}</span>
         </div>
+        <div className="pt-1">
+          <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">
+            {protectionLabel}
+          </span>
+        </div>
       </div>
-      <div className="mt-auto pt-6 text-sm font-semibold text-slate-700 transition-colors group-hover:text-emerald-700">
-        {actionLabel}
+
+      <div className="mt-6 flex items-center justify-between border-t border-white/8 pt-5 text-sm font-semibold uppercase tracking-[0.16em] text-slate-400 transition-colors group-hover:text-emerald-300">
+        <span>{actionLabel}</span>
+        <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
       </div>
     </Link>
   );
@@ -808,20 +836,40 @@ function TrendingMatchCard({ locale, match }: { locale: string; match: DisplayMa
 
 function TeamChip({ logo, team }: { logo?: string; team: string }) {
   return (
-    <div className="flex min-w-0 flex-col items-center gap-2 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#ecfdf5)] text-sm font-black text-emerald-700 shadow-[0_14px_28px_-24px_rgba(15,23,42,0.45)]">
+    <div className="flex min-w-0 flex-col items-center gap-2.5 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-[20px] border border-white/10 bg-white/[0.04] text-sm font-black text-emerald-300">
         {logo ? (
-          <Image src={logo} alt={team} width={40} height={40} className="h-10 w-10 object-contain" />
+          <Image src={logo} alt={team} width={42} height={42} className="h-10.5 w-10.5 object-contain" />
         ) : (
           getInitials(team)
         )}
       </div>
-      <div className="line-clamp-2 text-xs font-semibold text-slate-700">{team}</div>
+      <div className="line-clamp-2 text-[12px] font-semibold leading-[1.25] text-slate-200">{team}</div>
     </div>
   );
 }
 
-function getDisplayMatches(featuredMatches: Match[] | null | undefined, locale: string): DisplayMatch[] {
+function renderAccentText(title: string, highlight: string | undefined, accentClassName: string) {
+  if (!highlight || !title.includes(highlight)) {
+    return title;
+  }
+
+  const [before, after] = title.split(highlight);
+
+  return (
+    <>
+      {before}
+      <span className={accentClassName}>{highlight}</span>
+      {after}
+    </>
+  );
+}
+
+function getDisplayMatches(
+  featuredMatches: Match[] | null | undefined,
+  locale: string,
+  copy: ReturnType<typeof getHomeCopy>,
+): DisplayMatch[] {
   return (featuredMatches ?? [])
     .map((match) => ({
       id: match.id,
@@ -833,21 +881,22 @@ function getDisplayMatches(featuredMatches: Match[] | null | undefined, locale: 
       stadium: match.stadium,
       stadium_image: resolveStadiumImage(match.stadium, match.home_team, match.away_team),
       security_level: match.security_level || "High",
-      league: match.tournaments?.name ?? (locale === "vi" ? "Giải nổi bật" : "Featured league"),
+      league: match.tournaments?.name ?? copy.featuredLeagueFallback,
       league_logo: resolveLeagueLogo(match.tournaments?.name ?? ""),
-      badge: locale === "vi" ? "Mở bán" : "On sale",
+      badge: copy.saleBadge,
+      schedule_updating: copy.scheduleUpdating,
     }))
     .slice(0, 4);
 }
 
-function formatMatchLabel(date: string, locale: string) {
+function formatMatchLabel(date: string, locale: string, fallbackLabel: string) {
   const parsedDate = new Date(date);
 
   if (Number.isNaN(parsedDate.getTime())) {
-    return locale === "vi" ? "Lịch đang cập nhật" : "Schedule updating";
+    return fallbackLabel;
   }
 
-  return new Intl.DateTimeFormat(locale === "vi" ? "vi-VN" : "en-US", {
+  return new Intl.DateTimeFormat(locale.startsWith("vi") ? "vi-VN" : "en-US", {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
@@ -866,56 +915,6 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-function resolveLeagueLogo(leagueName: string) {
-  const normalized = leagueName.toLowerCase();
-
-  if (normalized.includes("premier league")) {
-    return "https://upload.wikimedia.org/wikipedia/en/f/f2/Premier_League_Logo.svg";
-  }
-
-  if (normalized.includes("champions league")) {
-    return "https://upload.wikimedia.org/wikipedia/commons/0/08/UEFA_Champions_League_logo_2.svg";
-  }
-
-  if (normalized.includes("la liga")) {
-    return "https://upload.wikimedia.org/wikipedia/commons/0/0f/LaLiga_logo_2023.svg";
-  }
-
-  if (normalized.includes("v-league")) {
-    return "https://upload.wikimedia.org/wikipedia/vi/9/9c/V.League_1_logo.svg";
-  }
-
-  return "https://upload.wikimedia.org/wikipedia/en/f/f2/Premier_League_Logo.svg";
-}
-
-function resolveTeamLogo(teamName: string, fallbackLogo?: string) {
-  if (fallbackLogo) {
-    return fallbackLogo;
-  }
-
-  const normalized = teamName.toLowerCase();
-  const teamLogos: Record<string, string> = {
-    "arsenal": "https://upload.wikimedia.org/wikipedia/en/5/53/Arsenal_FC.svg",
-    "manchester city": "https://upload.wikimedia.org/wikipedia/en/e/eb/Manchester_City_FC_badge.svg",
-    "liverpool": "https://upload.wikimedia.org/wikipedia/en/0/0c/Liverpool_FC.svg",
-    "bayern munich": "https://upload.wikimedia.org/wikipedia/en/7/79/FC_Bayern_Munich_logo_%282024%29.svg",
-    "barcelona": "https://upload.wikimedia.org/wikipedia/en/4/47/FC_Barcelona_%28crest%29.svg",
-    "inter milan": "https://upload.wikimedia.org/wikipedia/commons/0/05/FC_Internazionale_Milano_2021.svg",
-    "real madrid": "https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg",
-    "atletico madrid": "https://upload.wikimedia.org/wikipedia/en/f/f4/Atletico_Madrid_2017_logo.svg",
-    "chelsea": "https://upload.wikimedia.org/wikipedia/en/c/cc/Chelsea_FC.svg",
-    "manchester united": "https://upload.wikimedia.org/wikipedia/en/7/7a/Manchester_United_FC_crest.svg",
-    "tottenham hotspur": "https://upload.wikimedia.org/wikipedia/en/b/b4/Tottenham_Hotspur.svg",
-    "paris saint-germain": "https://upload.wikimedia.org/wikipedia/en/a/a7/Paris_Saint-Germain_F.C..svg",
-    "juventus": "https://upload.wikimedia.org/wikipedia/commons/1/15/Juventus_FC_2017_logo.svg",
-    "borussia dortmund": "https://upload.wikimedia.org/wikipedia/commons/6/67/Borussia_Dortmund_logo.svg",
-    "ac milan": "https://upload.wikimedia.org/wikipedia/commons/d/d0/Logo_of_AC_Milan.svg",
-    "napoli": "https://upload.wikimedia.org/wikipedia/commons/2/2d/SSC_Neapel.svg",
-  };
-
-  return teamLogos[normalized] ?? DEFAULT_TEAM_BADGE;
-}
-
 function resolveStadiumImage(stadium: string, homeTeam: string, awayTeam: string) {
   const normalizedStadium = stadium.toLowerCase();
   const normalizedMatch = `${homeTeam} ${awayTeam}`.toLowerCase();
@@ -926,7 +925,7 @@ function resolveStadiumImage(stadium: string, homeTeam: string, awayTeam: string
     "santiago bernabeu": "https://images.unsplash.com/photo-1486286701208-1d58e9338013?auto=format&fit=crop&w=1200&q=80",
     "camp nou": "https://images.unsplash.com/photo-1518604666860-9ed391f76460?auto=format&fit=crop&w=1200&q=80",
     "old trafford": "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80",
-    "estadí olimpic lluís companys": "https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=1200&q=80",
+    "estadi olimpic lluis companys": "https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=1200&q=80",
   };
 
   for (const [key, value] of Object.entries(stadiumImages)) {
@@ -950,186 +949,114 @@ function resolveStadiumImage(stadium: string, homeTeam: string, awayTeam: string
   return "https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?auto=format&fit=crop&w=1200&q=80";
 }
 
-function getHomeCopy(locale: string) {
-  if (locale === "vi") {
-    return {
-      cityCta: "Xem trận tại khu vực này",
-      cityDescription: "Tìm các trận đang mở bán tại những điểm đến được quan tâm nhất.",
-      cityEyebrow: "Sân đấu nổi bật",
-      cityTitle: "Khám phá theo sân và thành phố",
-      featuredDescription: "Chọn nhanh các trận lớn với vé đã xác thực và thông tin rõ ràng.",
-      featuredEyebrow: "Trận đấu nổi bật",
-      featuredLeagues: [
-        { href: "/matches?league=Premier%20League%2024%2F25", label: "Premier League", note: "Derby cuối tuần và đại chiến Big Six.", logo: "https://upload.wikimedia.org/wikipedia/en/f/f2/Premier_League_Logo.svg" },
-        { href: "/matches?league=V-League%201", label: "V-League 1", note: "Các trận trong nước đang có nhu cầu cao.", logo: "https://upload.wikimedia.org/wikipedia/vi/9/9c/V.League_1_logo.svg" },
-        { href: "/matches?league=Champions%20League", label: "Champions League", note: "Đêm knock-out với lượng đặt vé lớn.", logo: "https://upload.wikimedia.org/wikipedia/commons/0/08/UEFA_Champions_League_logo_2.svg" },
-      ] satisfies LeagueLink[],
-      emptyMatchesDescription: "Danh sách trận sẽ xuất hiện ngay khi hệ thống mở bán hoặc cập nhật lịch mới.",
-      emptyMatchesTitle: "Chưa có trận đấu",
-      featuredTitle: "Trận đấu nổi bật đang mở bán",
-      guestValue: "Khách",
-      heroDescription:
-        "Khám phá trận cầu lớn với vé xác thực, ghế đẹp và giao dịch được bảo vệ trong từng bước.",
-      heroEyebrow: "Vé bóng đá · AI bảo vệ",
-      heroHighlights: [
-        "QR động chống sao chép",
-        "Kiểm duyệt gian lận theo thời gian thực",
-        "Luồng mua vé rõ ràng trên mobile",
-      ],
-      heroPanelDescription: "Tìm theo trận đấu, giải đấu hoặc thành phố chỉ trong vài thao tác.",
-      heroPanelTitle: "Bắt đầu từ nhu cầu thật của bạn",
-      heroQuickLinks: [
-        { href: "/matches", label: "Tất cả trận đấu", note: "Duyệt toàn bộ lịch mở bán hiện tại." },
-        { href: "/matches?league=V-League%201", label: "V-League 1", note: "Tập trung vào các trận hot trong nước." },
-        { href: "/matches?location=H%C3%A0%20N%E1%BB%99i", label: "Hà Nội", note: "Tìm nhanh theo địa điểm tổ chức." },
-        { href: "/history", label: "Ví vé của tôi", note: "Theo dõi trạng thái vé và lịch sử mua." },
-      ],
-      heroTitle: "Mua Vé Bóng Đá An Toàn & Hấp Dẫn",
-      howDescription: "Mua vé trong ba bước gọn, rõ ràng và dễ theo dõi.",
-      howEyebrow: "Cách hoạt động",
-      howTitle: "Cách TicketShield đưa bạn từ khám phá đến mua vé",
-      howSteps: [
-        { title: "Chọn trận hoặc giải đấu đang quan tâm", description: "Bắt đầu từ trận hot, giải đấu lớn hoặc thành phố bạn muốn đến.", icon: CalendarRange },
-        { title: "Chọn ghế và hoàn tất thanh toán nhanh", description: "Xem thông tin rõ ràng, chọn ghế phù hợp và thanh toán trong ít bước.", icon: Ticket },
-        { title: "Nhận vé QR động và theo dõi trong ví vé", description: "Nhận vé ngay sau thanh toán và kiểm tra lại bất cứ lúc nào trong ví vé.", icon: QrCode },
-      ],
-      leagueDescription: "Vào thẳng giải đấu yêu thích và xem ngay những trận đang mở bán.",
-      leagueEyebrow: "Lối vào giải đấu",
-      leagueTitle: "Đi nhanh vào giải đấu bạn muốn xem",
-      loggedInCta: "Mở ví vé của tôi",
-      memberValue: "Thành viên",
-      popularCities: [
-        { href: "/matches?location=H%C3%A0%20N%E1%BB%99i", label: "Hà Nội", note: "Nhiều trận V-League, sân dễ tiếp cận và lịch mở bán dày." },
-        { href: "/matches?location=H%E1%BB%93%20Ch%C3%AD%20Minh", label: "TP. Hồ Chí Minh", note: "Phù hợp cho các trận cầu lớn với nhu cầu mua vé cao." },
-        { href: "/matches?location=%C4%90%C3%A0%20N%E1%BA%B5ng", label: "Đà Nẵng", note: "Lựa chọn tốt cho người muốn theo dõi trận cuối tuần." },
-      ],
-      primaryCta: "Khám phá trận đấu",
-      promoEmpty: "Ưu đãi mới sẽ được cập nhật sớm.",
-      promoEyebrow: "Ưu đãi hội viên",
-      promoTitle: "Ưu đãi dành cho hội viên",
-      secondaryCta: "Đăng nhập để lưu vé",
-      securityCards: [
-        { title: "Lá chắn AI chống gian lận", description: "Hệ thống phát hiện hành vi bất thường trước và sau khi vé được phát hành.", icon: ShieldCheck },
-        { title: "Vé QR động", description: "Mã vé thay đổi theo thời gian để giảm nguy cơ chụp lén hoặc sao chép.", icon: QrCode },
-        { title: "Thanh toán an toàn", description: "Thông tin thanh toán và trạng thái giao dịch được trình bày rõ ràng, nhất quán.", icon: Lock },
-        { title: "Nguồn vé xác thực", description: "Nguồn vé và trạng thái mở bán được đồng bộ để giảm mơ hồ cho người mua.", icon: CheckCircle2 },
-      ] satisfies InfoCard[],
-      securityDescription: "Vé xác thực, QR động và thanh toán an toàn trong một trải nghiệm gọn gàng.",
-      securityEyebrow: "Lớp bảo mật",
-      securityFootnoteDescription: "Theo dõi trạng thái vé, kiểm tra giao dịch và vào trận với trải nghiệm rõ ràng từ đầu đến cuối.",
-      securityFootnoteEyebrow: "Trải nghiệm cao cấp",
-      securityFootnoteTitle: "Bảo mật và tính dễ dùng phải đi cùng nhau",
-      securityTitle: "Bằng chứng bảo mật ở ngay mặt tiền sản phẩm",
-      stepLabel: "Bước",
-      trendingDescription: "Những trận đang được tìm kiếm và đặt vé nhiều nhất trong tuần này.",
-      trendingEyebrow: "Nổi bật tuần này",
-      trendingSidebarDescription: "Cập nhật nhanh các trận hot, sự kiện sắp hết vé và lối vào đặt vé trực tiếp.",
-      trendingSidebarEyebrow: "Xu hướng thời gian thực",
-      trendingSidebarPoints: [
-        "Trận hot đang mở bán",
-        "Cập nhật số lượng vé theo thời gian thực",
-        "Đặt vé nhanh từ thẻ trận",
-      ],
-      trendingSidebarTitle: "Chọn ngay trận đang được săn đón nhiều nhất",
-      trendingTitle: "Những trận được quan tâm nhất tuần này",
-      trustDetails: [
-        "Lịch mở bán được cập nhật liên tục cho những trận sắp diễn ra.",
-        "Vé đã xác thực và sẵn sàng trong ví vé của bạn.",
-        "Giao dịch được bảo vệ bởi lớp chống gian lận theo thời gian thực.",
-        "Trải nghiệm được tối ưu cho cả khách mới và thành viên.",
-      ],
-      trustLabels: ["Trận sắp diễn ra", "Vé xác thực", "Chống gian lận", "Chế độ người dùng"],
-      viewAll: "Xem tất cả",
-    };
-  }
-
+function getHomeCopy(t: HomeTranslator) {
   return {
-    cityCta: "Explore matches here",
-    cityDescription: "Find verified tickets in the cities and venues fans check most often.",
-    cityEyebrow: "Popular stadiums",
-    cityTitle: "Browse by city and venue",
-    featuredDescription: "Browse headline fixtures with verified inventory and clearer match details.",
-    featuredEyebrow: "Featured fixtures",
+    cityCta: t("city_cta"),
+    cityDescription: t("city_description"),
+    cityEyebrow: t("city_eyebrow"),
+    cityTitle: t("city_title"),
+    featuredDescription: t("featured_description"),
+    featuredEyebrow: t("featured_eyebrow"),
     featuredLeagues: [
-      { href: "/matches?league=Premier%20League%2024%2F25", label: "Premier League", note: "Weekend derbies and big-six fixtures.", logo: "https://upload.wikimedia.org/wikipedia/en/f/f2/Premier_League_Logo.svg" },
-      { href: "/matches?league=V-League%201", label: "V-League 1", note: "Domestic fixtures with strong fan demand.", logo: "https://upload.wikimedia.org/wikipedia/vi/9/9c/V.League_1_logo.svg" },
-      { href: "/matches?league=Champions%20League", label: "Champions League", note: "Knockout nights with premium inventory.", logo: "https://upload.wikimedia.org/wikipedia/commons/0/08/UEFA_Champions_League_logo_2.svg" },
+      { href: "/matches?league=Premier%20League%2024%2F25", label: "Premier League", note: t("featured_leagues.premier_league.note"), logo: resolveLeagueLogo("Premier League") },
+      { href: "/matches?league=V-League%201", label: "V-League 1", note: t("featured_leagues.vleague.note"), logo: resolveLeagueLogo("V-League 1") },
+      { href: "/matches?league=Champions%20League", label: "Champions League", note: t("featured_leagues.champions_league.note"), logo: resolveLeagueLogo("Champions League") },
     ] satisfies LeagueLink[],
-    emptyMatchesDescription: "New fixtures will appear here as soon as sales open or schedules are confirmed.",
-    emptyMatchesTitle: "No matches yet",
-    featuredTitle: "Featured matches on sale now",
-    guestValue: "Guest",
-    heroDescription:
-      "Book standout football nights with verified inventory, premium seats and protected checkout.",
-    heroEyebrow: "Sports ticketing · AI secured",
+    emptyMatchesDescription: t("empty_matches_description"),
+    emptyMatchesTitle: t("empty_matches_title"),
+    featuredTitle: t("featured_title"),
+    guestValue: t("guest_value"),
+    heroDescription: t("hero_description"),
+    heroBadge: t("hero_badge"),
+    heroEyebrow: t("hero_eyebrow"),
     heroHighlights: [
-      "Dynamic QR ticket protection",
-      "Realtime anti-fraud monitoring",
-      "Cleaner mobile buying flow",
+      t("hero_highlights.0"),
+      t("hero_highlights.1"),
+      t("hero_highlights.2"),
     ],
-    heroPanelDescription: "Search by match, competition or city and jump straight into available tickets.",
-    heroPanelTitle: "Find the right path faster",
+    heroPanelDescription: t("hero_panel_description"),
+    heroPanelTitle: t("hero_panel_title"),
     heroQuickLinks: [
-      { href: "/matches", label: "All matches", note: "Browse the full on-sale schedule." },
-      { href: "/matches?league=V-League%201", label: "V-League 1", note: "Go directly to domestic demand." },
-      { href: "/matches?location=H%C3%A0%20N%E1%BB%99i", label: "Hanoi", note: "Filter the experience by venue area." },
-      { href: "/history", label: "My ticket wallet", note: "Track owned tickets and status." },
+      { href: "/matches", label: t("hero_quick_links.all_matches.label"), note: t("hero_quick_links.all_matches.note") },
+      { href: "/matches?league=V-League%201", label: t("hero_quick_links.vleague.label"), note: t("hero_quick_links.vleague.note") },
+      { href: "/matches?location=H%C3%A0%20N%E1%BB%99i", label: t("hero_quick_links.hanoi.label"), note: t("hero_quick_links.hanoi.note") },
+      { href: "/history", label: t("hero_quick_links.wallet.label"), note: t("hero_quick_links.wallet.note") },
     ],
-    heroTitle: "Buy Football Tickets Safely & Instantly",
-    howDescription: "Go from discovery to checkout in a flow that stays quick and easy to follow.",
-    howEyebrow: "How it works",
-    howTitle: "How TicketShield moves users from discovery to purchase",
+    heroTitle: t("hero_title"),
+    heroTitleHighlight: t("hero_title_highlight"),
+    howDescription: t("how_description"),
+    howEyebrow: t("how_eyebrow"),
+    howTitle: t("how_title"),
     howSteps: [
-      { title: "Pick a match or competition", description: "Start from trending fixtures, top leagues or the city you plan to attend.", icon: CalendarRange },
-      { title: "Choose seats and complete checkout", description: "Review clear match details, choose seats and pay in a few quick steps.", icon: Ticket },
-      { title: "Receive a secured dynamic QR ticket", description: "Get your ticket instantly and manage it anytime from your ticket wallet.", icon: QrCode },
+      { title: t("how_steps.choose_match.title"), description: t("how_steps.choose_match.description"), icon: CalendarRange },
+      { title: t("how_steps.choose_seat.title"), description: t("how_steps.choose_seat.description"), icon: Ticket },
+      { title: t("how_steps.receive_qr.title"), description: t("how_steps.receive_qr.description"), icon: QrCode },
     ],
-    leagueDescription: "Open your favorite competition and go straight to verified on-sale fixtures.",
-    leagueEyebrow: "Competition gateway",
-    leagueTitle: "Jump into the league you care about",
-    loggedInCta: "Open my ticket wallet",
-    memberValue: "Member",
+    leagueDescription: t("league_description"),
+    leagueEyebrow: t("league_eyebrow"),
+    leagueTitle: t("league_title"),
+    loggedInCta: t("logged_in_cta"),
+    memberValue: t("member_value"),
     popularCities: [
-      { href: "/matches?location=H%C3%A0%20N%E1%BB%99i", label: "Hanoi", note: "Strong domestic schedule and easy city-based discovery." },
-      { href: "/matches?location=H%E1%BB%93%20Ch%C3%AD%20Minh", label: "Ho Chi Minh City", note: "High-demand fixtures and premium matchday traffic." },
-      { href: "/matches?location=%C4%90%C3%A0%20N%E1%BA%B5ng", label: "Da Nang", note: "Weekend fixtures with a lighter browsing path." },
+      { href: "/matches?location=H%C3%A0%20N%E1%BB%99i", label: t("popular_cities.hanoi.label"), note: t("popular_cities.hanoi.note") },
+      { href: "/matches?location=H%E1%BB%93%20Ch%C3%AD%20Minh", label: t("popular_cities.hcm.label"), note: t("popular_cities.hcm.note") },
+      { href: "/matches?location=%C4%90%C3%A0%20N%E1%BA%B5ng", label: t("popular_cities.danang.label"), note: t("popular_cities.danang.note") },
     ],
-    primaryCta: "Explore matches",
-    promoEmpty: "New member offers will appear here soon.",
-    promoEyebrow: "Member benefits",
-    promoTitle: "Offers that make the product feel alive",
-    secondaryCta: "Sign in to save tickets",
+    primaryCta: t("primary_cta"),
+    promoEmpty: t("promo_empty"),
+    promoEyebrow: t("promo_eyebrow"),
+    promoTitle: t("promo_title"),
+    secondaryCta: t("secondary_cta"),
     securityCards: [
-      { title: "AI fraud shield", description: "Risk signals are checked before and after ticket issuance to reduce bad inventory flow.", icon: ShieldCheck },
-      { title: "Dynamic QR ticket", description: "Ticket codes refresh over time to reduce screenshotting and copying risks.", icon: QrCode },
-      { title: "Secure checkout", description: "Payment information and transaction state stay readable and consistent.", icon: Lock },
-      { title: "Verified inventory", description: "Inventory and availability are surfaced more clearly so users trust what they see.", icon: CheckCircle2 },
+      { title: t("security_cards.bot_detection.title"), description: t("security_cards.bot_detection.description"), icon: ShieldCheck },
+      { title: t("security_cards.verified_qr.title"), description: t("security_cards.verified_qr.description"), icon: QrCode },
+      { title: t("security_cards.checked_transactions.title"), description: t("security_cards.checked_transactions.description"), icon: Lock },
+      { title: t("security_cards.seat_monitoring.title"), description: t("security_cards.seat_monitoring.description"), icon: CheckCircle2 },
     ] satisfies InfoCard[],
-    securityDescription: "Verified tickets, dynamic QR access and secure checkout in one clear flow.",
-    securityEyebrow: "Security proof",
-    securityFootnoteDescription: "Track ticket status, confirm payments and access matchday entry with confidence.",
-    securityFootnoteEyebrow: "Premium UX",
-    securityFootnoteTitle: "Security only works when the product stays usable",
-    securityTitle: "Visible protection at the front of the experience",
-    stepLabel: "Step",
-    trendingDescription: "See the fixtures attracting the most attention and buy before demand spikes.",
-    trendingEyebrow: "Trending this week",
-    trendingSidebarDescription: "Stay close to the hottest fixtures, limited inventory and the fastest path to checkout.",
-    trendingSidebarEyebrow: "Realtime intent",
+    securityDescription: t("security_description"),
+    securityEyebrow: t("security_eyebrow"),
+    securityFootnoteDescription: t("security_footnote_description"),
+    securityFootnoteEyebrow: t("security_footnote_eyebrow"),
+    securityFootnoteTitle: t("security_footnote_title"),
+    securityTitle: t("security_title"),
+    sectionHighlights: {
+      city: t("section_highlights.city"),
+      featured: t("section_highlights.featured"),
+      how: t("section_highlights.how"),
+      league: t("section_highlights.league"),
+      promo: t("section_highlights.promo"),
+      security: t("section_highlights.security"),
+      trending: t("section_highlights.trending"),
+    },
+    scheduleUpdating: t("schedule_updating"),
+    saleBadge: t("sale_badge"),
+    stepLabel: t("step_label"),
+    trendingDescription: t("trending_description"),
+    trendingAction: t("trending_action"),
+    trendingEyebrow: t("trending_eyebrow"),
+    trendingSidebarDescription: t("trending_sidebar_description"),
+    trendingSidebarEyebrow: t("trending_sidebar_eyebrow"),
     trendingSidebarPoints: [
-      "Most searched fixtures right now",
-      "Fast path from hero to checkout",
-      "Live ticket availability",
+      t("trending_sidebar_points.0"),
+      t("trending_sidebar_points.1"),
+      t("trending_sidebar_points.2"),
     ],
-    trendingSidebarTitle: "Book the matches fans are watching most",
-    trendingTitle: "Most watched fixtures this week",
+    trendingSidebarTitle: t("trending_sidebar_title"),
+    trendingTitle: t("trending_title"),
+    protectionLabel: t("protection_label"),
     trustDetails: [
-      "Upcoming fixtures ready to browse and book now.",
-      "Verified tickets delivered through a protected wallet flow.",
-      "Realtime fraud monitoring behind every transaction.",
-      "A smoother experience for guests and signed-in members.",
+      t("trust_details.0"),
+      t("trust_details.1"),
+      t("trust_details.2"),
+      t("trust_details.3"),
     ],
-    trustLabels: ["Upcoming fixtures", "Verified tickets", "Fraud protection", "User mode"],
-    viewAll: "View all",
+    trustLabels: [
+      t("trust_labels.0"),
+      t("trust_labels.1"),
+      t("trust_labels.2"),
+      t("trust_labels.3"),
+    ],
+    featuredLeagueFallback: t("featured_league_fallback"),
+    viewAll: t("view_all"),
   };
 }

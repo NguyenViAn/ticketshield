@@ -1,28 +1,15 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useLocale } from "next-intl";
+import { fetchActivePromotions } from "@/lib/services/promotions";
+import type { Promotion } from "@/types";
 
-export interface PromotionRow {
-    id: string;
-    title_vi: string;
-    title_en: string;
-    description_vi: string;
-    description_en: string;
-    discount: string;
-    gradient_code: string;
-    active: boolean;
-}
-
-export interface LocalizedPromotion {
-    id: string;
-    title: string;
-    description: string;
-    discount: string;
-    gradientCode: string;
+function getErrorMessage(error: unknown) {
+    return error instanceof Error ? error.message : String(error);
 }
 
 export function usePromotions() {
-    const [data, setData] = useState<LocalizedPromotion[]>([]);
+    const [data, setData] = useState<Promotion[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const locale = useLocale();
     const supabase = createClient();
@@ -32,26 +19,13 @@ export function usePromotions() {
 
         const fetchPromotions = async () => {
             try {
-                const { data: result, error } = await supabase
-                    .from('promotions')
-                    .select('*')
-                    .eq('active', true)
-                    .order('created_at', { ascending: false });
+                const localized = await fetchActivePromotions(supabase, locale);
 
-                if (error) throw error;
-
-                if (isMounted && result) {
-                    const localized: LocalizedPromotion[] = result.map((row: PromotionRow) => ({
-                        id: row.id,
-                        title: locale === 'vi' ? row.title_vi : row.title_en,
-                        description: locale === 'vi' ? row.description_vi : row.description_en,
-                        discount: row.discount,
-                        gradientCode: row.gradient_code,
-                    }));
+                if (isMounted) {
                     setData(localized);
                 }
-            } catch (err: any) {
-                console.warn("Promotions fetch error:", err?.message || err);
+            } catch (err: unknown) {
+                console.warn("Promotions fetch error:", getErrorMessage(err));
             } finally {
                 if (isMounted) setIsLoading(false);
             }
@@ -62,8 +36,7 @@ export function usePromotions() {
         return () => {
             isMounted = false;
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [locale]);
+    }, [locale, supabase]);
 
     return { data, isLoading };
 }

@@ -1,351 +1,434 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, CheckCircle2, XCircle, Clock, ShieldCheck, MapPin, Copy, AlertTriangle } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  Copy,
+  Download,
+  ShieldAlert,
+  ShieldCheck,
+  XCircle,
+} from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { useParams, useRouter } from "next/navigation";
+
 import { Link } from "@/i18n/routing";
 import { NeonButton } from "@/components/ui/neon-button";
+import {
+  MatchdayDetailBlock,
+  MatchdayInfoField,
+  MatchdayPanel,
+  MatchdaySummaryRow,
+} from "@/components/ui/matchday";
 import { useAuth } from "@/components/providers/auth-provider";
 import { createClient } from "@/utils/supabase/client";
-import { useRouter, useParams } from "next/navigation";
-import { useTranslations, useLocale } from "next-intl";
-import { TicketWithMatch } from "@/types";
+import type { TicketWithMatch } from "@/types";
 
-// Simple QR Code SVG generator (data matrix style visual representation)
-function QRCodeSVG({ data, size = 160 }: { data: string; size?: number }) {
-    // Generate a deterministic pattern from the hash string
-    const cells = 21;
-    const cellSize = size / cells;
-    const pattern: boolean[][] = [];
+function QRCodeSVG({ data, size = 164 }: { data: string; size?: number }) {
+  const cells = 21;
+  const cellSize = size / cells;
+  const pattern: boolean[][] = [];
 
-    // Create seed from data string
-    let seed = 0;
-    for (let i = 0; i < data.length; i++) {
-        seed = ((seed << 5) - seed + data.charCodeAt(i)) | 0;
-    }
+  let seed = 0;
+  for (let i = 0; i < data.length; i++) {
+    seed = ((seed << 5) - seed + data.charCodeAt(i)) | 0;
+  }
 
-    // Simple pseudo-random based on seed
-    const rng = (s: number) => {
-        s = Math.imul(s ^ (s >>> 16), 0x45d9f3b);
-        s = Math.imul(s ^ (s >>> 13), 0x45d9f3b);
-        return (s ^ (s >>> 16)) >>> 0;
-    };
+  const rng = (value: number) => {
+    value = Math.imul(value ^ (value >>> 16), 0x45d9f3b);
+    value = Math.imul(value ^ (value >>> 13), 0x45d9f3b);
+    return (value ^ (value >>> 16)) >>> 0;
+  };
 
-    for (let row = 0; row < cells; row++) {
-        pattern[row] = [];
-        for (let col = 0; col < cells; col++) {
-            // Fixed corner patterns (finder patterns)
-            const inFinderTL = row < 7 && col < 7;
-            const inFinderTR = row < 7 && col >= cells - 7;
-            const inFinderBL = row >= cells - 7 && col < 7;
+  for (let row = 0; row < cells; row++) {
+    pattern[row] = [];
+    for (let col = 0; col < cells; col++) {
+      const inFinderTL = row < 7 && col < 7;
+      const inFinderTR = row < 7 && col >= cells - 7;
+      const inFinderBL = row >= cells - 7 && col < 7;
 
-            if (inFinderTL || inFinderTR || inFinderBL) {
-                const lr = inFinderTL ? row : inFinderTR ? row : row - (cells - 7);
-                const lc = inFinderTL ? col : inFinderTR ? col - (cells - 7) : col;
-                // Outer border
-                if (lr === 0 || lr === 6 || lc === 0 || lc === 6) {
-                    pattern[row][col] = true;
-                } else if (lr >= 2 && lr <= 4 && lc >= 2 && lc <= 4) {
-                    pattern[row][col] = true;
-                } else {
-                    pattern[row][col] = false;
-                }
-            } else {
-                seed = rng(seed + row * cells + col);
-                pattern[row][col] = (seed % 3) !== 0;
-            }
+      if (inFinderTL || inFinderTR || inFinderBL) {
+        const localRow = inFinderTL ? row : inFinderTR ? row : row - (cells - 7);
+        const localCol = inFinderTL ? col : inFinderTR ? col - (cells - 7) : col;
+        if (localRow === 0 || localRow === 6 || localCol === 0 || localCol === 6) {
+          pattern[row][col] = true;
+        } else if (localRow >= 2 && localRow <= 4 && localCol >= 2 && localCol <= 4) {
+          pattern[row][col] = true;
+        } else {
+          pattern[row][col] = false;
         }
+      } else {
+        seed = rng(seed + row * cells + col);
+        pattern[row][col] = seed % 3 !== 0;
+      }
     }
+  }
 
-    return (
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="rounded-lg">
-            <rect width={size} height={size} fill="white" />
-            {pattern.map((row, r) =>
-                row.map((cell, c) =>
-                    cell ? (
-                        <rect
-                            key={`${r}-${c}`}
-                            x={c * cellSize}
-                            y={r * cellSize}
-                            width={cellSize}
-                            height={cellSize}
-                            fill="#0f172a"
-                        />
-                    ) : null
-                )
-            )}
-        </svg>
-    );
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="rounded-xl">
+      <rect width={size} height={size} fill="white" />
+      {pattern.map((row, rowIndex) =>
+        row.map((filled, columnIndex) =>
+          filled ? (
+            <rect
+              key={`${rowIndex}-${columnIndex}`}
+              x={columnIndex * cellSize}
+              y={rowIndex * cellSize}
+              width={cellSize}
+              height={cellSize}
+              fill="#03140d"
+            />
+          ) : null
+        )
+      )}
+    </svg>
+  );
 }
 
-const statusConfig: Record<string, { icon: typeof CheckCircle2; color: string; bgColor: string; borderColor: string }> = {
-    Valid: { icon: CheckCircle2, color: "text-brand-green", bgColor: "bg-brand-green/10", borderColor: "border-brand-green/20" },
-    Used: { icon: Clock, color: "text-brand-blue", bgColor: "bg-brand-blue/10", borderColor: "border-brand-blue/20" },
-    Cancelled: { icon: XCircle, color: "text-brand-red", bgColor: "bg-brand-red/10", borderColor: "border-brand-red/20" },
-    Suspended: { icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-50", borderColor: "border-orange-200" },
+const statusConfig: Record<string, { icon: typeof CheckCircle2; accent: string; panel: string; title: string }> = {
+  Valid: {
+    icon: CheckCircle2,
+    accent: "text-emerald-300",
+    panel: "border-emerald-400/18 bg-emerald-400/10",
+    title: "Verified",
+  },
+  Used: {
+    icon: Clock,
+    accent: "text-cyan-300",
+    panel: "border-cyan-400/18 bg-cyan-400/10",
+    title: "Used",
+  },
+  Cancelled: {
+    icon: XCircle,
+    accent: "text-rose-300",
+    panel: "border-rose-400/18 bg-rose-400/10",
+    title: "Cancelled",
+  },
+  Suspended: {
+    icon: ShieldAlert,
+    accent: "text-amber-200",
+    panel: "border-amber-300/18 bg-amber-300/10",
+    title: "Suspended",
+  },
 };
 
 export default function TicketDetailPage() {
-    const { user, isLoggedIn, isLoading: authLoading } = useAuth();
-    const router = useRouter();
-    const params = useParams();
-    const ticketId = params.ticketId as string;
-    const supabase = useMemo(() => createClient(), []);
-    const t = useTranslations("TicketDetail");
-    const locale = useLocale();
+  const { user, isLoggedIn, isLoading: authLoading } = useAuth();
+  const router = useRouter();
+  const params = useParams();
+  const ticketId = params.ticketId as string;
+  const supabase = useMemo(() => createClient(), []);
+  const t = useTranslations("TicketDetail");
+  const locale = useLocale();
+  const isVietnamese = locale.startsWith("vi");
 
-    const [ticket, setTicket] = useState<TicketWithMatch | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isCancelling, setIsCancelling] = useState(false);
-    const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-    const [copiedHash, setCopiedHash] = useState(false);
+  const [ticket, setTicket] = useState<TicketWithMatch | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [copiedHash, setCopiedHash] = useState(false);
 
-    useEffect(() => {
-        if (!authLoading && !isLoggedIn) {
-            const historyPath = `/${locale}/history`;
-            router.push(`/${locale}/login?redirect=${encodeURIComponent(historyPath)}`);
-        }
-    }, [isLoggedIn, authLoading, router, locale]);
+  useEffect(() => {
+    if (!authLoading && !isLoggedIn) {
+      const historyPath = `/${locale}/history`;
+      router.push(`/${locale}/login?redirect=${encodeURIComponent(historyPath)}`);
+    }
+  }, [authLoading, isLoggedIn, locale, router]);
 
-    useEffect(() => {
-        if (!ticketId || !isLoggedIn || !user) return;
+  useEffect(() => {
+    if (!ticketId || !isLoggedIn || !user) return;
 
-        const fetchTicket = async () => {
-            const { data, error } = await supabase
-                .from('tickets')
-                .select('*, matches(*, tournaments(name))')
-                .eq('id', ticketId)
-                .eq('user_id', user.id)
-                .single();
+    const fetchTicket = async () => {
+      const { data, error } = await supabase
+        .from("tickets")
+        .select("*, matches(*, tournaments(name))")
+        .eq("id", ticketId)
+        .eq("user_id", user.id)
+        .single();
 
-            if (error || !data) {
-                console.error("Failed to fetch ticket:", error);
-                router.push(`/${locale}/history`);
-                return;
-            }
+      if (error || !data) {
+        console.error("Failed to fetch ticket:", error);
+        router.push(`/${locale}/history`);
+        return;
+      }
 
-            setTicket(data as unknown as TicketWithMatch);
-            setIsLoading(false);
-        };
-
-        fetchTicket();
-    }, [ticketId, isLoggedIn, supabase, router, locale, user]);
-
-    const handleCancelTicket = async () => {
-        if (!ticket || !user) return;
-        setIsCancelling(true);
-
-        const { error } = await supabase
-            .from('tickets')
-            .update({ status: 'Cancelled' })
-            .eq('id', ticket.id)
-            .eq('user_id', user.id);
-
-        if (error) {
-            alert(t("cancel_error") + error.message);
-        } else {
-            const { data: inventoryUpdated, error: inventoryError } = await supabase.rpc('increment_available_seats', { match_uuid: ticket.match_id });
-
-            if (inventoryError || inventoryUpdated === false) {
-                await supabase
-                    .from('tickets')
-                    .update({ status: 'Valid' })
-                    .eq('id', ticket.id)
-                    .eq('user_id', user.id);
-
-                alert(t("cancel_error") + (inventoryError?.message ?? "Unable to restore seat inventory."));
-            } else {
-                setTicket({ ...ticket, status: 'Cancelled' });
-                setShowCancelConfirm(false);
-            }
-        }
-        setIsCancelling(false);
+      setTicket(data as unknown as TicketWithMatch);
+      setIsLoading(false);
     };
 
-    const handleCopyHash = () => {
-        if (!ticket) return;
-        navigator.clipboard.writeText(ticket.ai_validation_hash);
-        setCopiedHash(true);
-        setTimeout(() => setCopiedHash(false), 2000);
-    };
+    fetchTicket();
+  }, [ticketId, isLoggedIn, supabase, router, locale, user]);
 
-    if (!isLoggedIn && !authLoading) return null;
+  const handleCancelTicket = async () => {
+    if (!ticket || !user) return;
+    setIsCancelling(true);
 
-    if (isLoading) {
-        return (
-            <main className="min-h-screen pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
-                <div className="space-y-6">
-                    <div className="h-10 w-48 bg-slate-100 rounded-xl animate-pulse" />
-                    <div className="h-64 bg-slate-100 rounded-2xl animate-pulse" />
-                    <div className="h-48 bg-slate-100 rounded-2xl animate-pulse" />
-                </div>
-            </main>
-        );
+    const { error } = await supabase
+      .from("tickets")
+      .update({ status: "Cancelled" })
+      .eq("id", ticket.id)
+      .eq("user_id", user.id);
+
+    if (error) {
+      alert(t("cancel_error") + error.message);
+      setIsCancelling(false);
+      return;
     }
 
-    if (!ticket) return null;
+    const { data: inventoryUpdated, error: inventoryError } = await supabase.rpc("increment_available_seats", {
+      match_uuid: ticket.match_id,
+    });
 
-    const status = statusConfig[ticket.status] || statusConfig.Valid;
-    const StatusIcon = status.icon;
-    const matchTitle = ticket.matches
-        ? `${ticket.matches.home_team} vs ${ticket.matches.away_team}`
-        : t("unknown_match");
+    if (inventoryError || inventoryUpdated === false) {
+      await supabase.from("tickets").update({ status: "Valid" }).eq("id", ticket.id).eq("user_id", user.id);
+      alert(t("cancel_error") + (inventoryError?.message ?? "Unable to restore seat inventory."));
+    } else {
+      setTicket({ ...ticket, status: "Cancelled" });
+      setShowCancelConfirm(false);
+    }
 
+    setIsCancelling(false);
+  };
+
+  const handleCopyHash = () => {
+    if (!ticket) return;
+    navigator.clipboard.writeText(ticket.ai_validation_hash);
+    setCopiedHash(true);
+    setTimeout(() => setCopiedHash(false), 2000);
+  };
+
+  if (!isLoggedIn && !authLoading) return null;
+
+  if (isLoading) {
     return (
-        <main className="min-h-screen pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
-            {/* Back Link */}
-            <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}>
-                <Link href="/history" className="inline-flex items-center text-slate-500 hover:text-brand-green transition-colors text-sm font-bold mb-8 tracking-widest uppercase">
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    {t("back_to_history")}
-                </Link>
-            </motion.div>
-
-            {/* Header */}
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
-                <div className="flex items-center gap-3 mb-2">
-                    <div className="w-1 h-8 bg-gradient-to-b from-brand-green to-emerald-500 rounded-full" />
-                    <h1 className="text-3xl font-heading font-black text-slate-900 uppercase tracking-wide">{t("title")}</h1>
-                </div>
-                <p className="text-slate-500 font-sans ml-[19px]">{t("subtitle")}</p>
-            </motion.div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Main Info */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200/80 p-8"
-                >
-                    {/* Status Badge */}
-                    <div className="flex justify-between items-start mb-6">
-                        <div>
-                            <span className="font-mono text-sm text-slate-400">{t("ticket_id")} {ticket.id.split('-')[0]}</span>
-                            <h2 className="text-2xl font-heading font-black text-slate-900 mt-1">{matchTitle}</h2>
-                        </div>
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider ${status.bgColor} ${status.color} border ${status.borderColor}`}>
-                            <StatusIcon className="w-4 h-4" />
-                            {t(`status_${ticket.status.toLowerCase()}`)}
-                        </span>
-                    </div>
-
-                    {/* Details Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
-                        <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">{t("seat")}</label>
-                            <span className="text-lg font-bold text-brand-green">{ticket.seat}</span>
-                        </div>
-                        <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">{t("price_paid")}</label>
-                            <span className="text-lg font-bold text-brand-blue">{ticket.price_paid.toLocaleString(locale)} VND</span>
-                        </div>
-                        <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">{t("purchase_date")}</label>
-                            <span className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-slate-400" />
-                                {new Date(ticket.created_at).toLocaleString(locale)}
-                            </span>
-                        </div>
-                        {ticket.matches && (
-                            <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
-                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">{t("stadium")}</label>
-                                <span className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                                    <MapPin className="w-4 h-4 text-slate-400" />
-                                    {ticket.matches.stadium}
-                                </span>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* AI Hash */}
-                    <div className="border-t border-slate-100 pt-6">
-                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-3">{t("ai_hash")}</label>
-                        <div className="flex items-center gap-3">
-                            <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 flex items-center gap-2">
-                                <ShieldCheck className="w-5 h-5 text-brand-blue" />
-                                <span className="font-mono text-sm text-slate-600 truncate">{ticket.ai_validation_hash}</span>
-                            </div>
-                            <button
-                                onClick={handleCopyHash}
-                                className="p-3 rounded-lg hover:bg-brand-green/10 text-slate-400 hover:text-brand-green transition-colors border border-slate-200"
-                                title="Copy"
-                            >
-                                {copiedHash ? <CheckCircle2 className="w-5 h-5 text-brand-green" /> : <Copy className="w-5 h-5" />}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Cancel Button */}
-                    {ticket.status === 'Valid' && (
-                        <div className="mt-8 border-t border-slate-100 pt-6">
-                            {!showCancelConfirm ? (
-                                <button
-                                    onClick={() => setShowCancelConfirm(true)}
-                                    className="text-brand-red hover:text-red-700 text-sm font-bold uppercase tracking-wider transition-colors"
-                                >
-                                    {t("btn_cancel_ticket")}
-                                </button>
-                            ) : (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="bg-red-50 border border-red-200 rounded-xl p-5"
-                                >
-                                    <p className="text-sm text-slate-700 mb-4 font-medium">{t("cancel_confirm")}</p>
-                                    <div className="flex gap-3">
-                                        <NeonButton
-                                            onClick={handleCancelTicket}
-                                            disabled={isCancelling}
-                                            className="!bg-brand-red !border-brand-red hover:!bg-red-700"
-                                        >
-                                            {isCancelling ? t("cancelling") : t("btn_confirm_cancel")}
-                                        </NeonButton>
-                                        <button
-                                            onClick={() => setShowCancelConfirm(false)}
-                                            className="text-slate-500 hover:text-slate-700 text-sm font-medium px-4"
-                                        >
-                                            {t("btn_keep")}
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </div>
-                    )}
-                </motion.div>
-
-                {/* QR Code Panel */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-8 flex flex-col items-center text-center"
-                >
-                    <h3 className="text-lg font-heading font-bold text-slate-800 uppercase tracking-wide mb-6">{t("qr_title")}</h3>
-
-                    {ticket.status === 'Valid' ? (
-                        <>
-                            <div className="p-4 bg-white border-2 border-slate-200 rounded-2xl shadow-sm mb-4">
-                                <QRCodeSVG data={ticket.ai_validation_hash} size={160} />
-                            </div>
-                            <p className="text-xs text-slate-400 mb-6">{t("qr_hint")}</p>
-                        </>
-                    ) : (
-                        <div className="w-40 h-40 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 border border-slate-200">
-                            <XCircle className="w-12 h-12 text-slate-300" />
-                        </div>
-                    )}
-
-                    <div className="w-full mt-auto pt-6 border-t border-slate-100">
-                        <div className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">{t("match_date")}</div>
-                        <div className="text-sm font-medium text-slate-700">
-                            {ticket.matches ? new Date(ticket.matches.date).toLocaleString(locale, {
-                                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-                                hour: '2-digit', minute: '2-digit'
-                            }) : '-'}
-                        </div>
-                    </div>
-                </motion.div>
+      <main className="page-premium">
+        <div className="mx-auto max-w-7xl px-4 pb-16 pt-24 sm:px-6 lg:px-8">
+          <div className="space-y-6">
+            <div className="h-12 w-44 animate-pulse rounded-2xl border border-white/10 bg-white/5  " />
+            <div className="h-52 animate-pulse rounded-[34px] border border-white/10 bg-white/5  " />
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_420px]">
+              <div className="h-[520px] animate-pulse rounded-[30px] border border-white/10 bg-white/5  " />
+              <div className="h-[520px] animate-pulse rounded-[30px] border border-white/10 bg-white/5  " />
             </div>
-        </main>
+          </div>
+        </div>
+      </main>
     );
+  }
+
+  if (!ticket) return null;
+
+  const status = statusConfig[ticket.status] || statusConfig.Valid;
+  const StatusIcon = status.icon;
+  const matchTitle = ticket.matches
+    ? `${ticket.matches.home_team} vs ${ticket.matches.away_team}`
+    : t("unknown_match");
+  const purchaseDate = new Date(ticket.created_at);
+  const matchDate = ticket.matches ? new Date(ticket.matches.date) : null;
+  const matchDay = matchDate
+    ? new Intl.DateTimeFormat(isVietnamese ? "vi-VN" : "en-US", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }).format(matchDate)
+    : "--";
+  const kickoffTime = matchDate
+    ? new Intl.DateTimeFormat(isVietnamese ? "vi-VN" : "en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(matchDate)
+    : "--";
+
+  return (
+    <main className="page-premium">
+      <div className="mx-auto max-w-7xl px-4 pb-20 pt-24 sm:px-6 lg:px-8">
+        <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}>
+          <Link href="/history" className="theme-link-accent inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em]">
+            <ArrowLeft className="h-4 w-4" />
+            {t("back_to_wallet")}
+          </Link>
+        </motion.div>
+
+        <section className="mt-8 text-center">
+          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[28px] border border-emerald-400/18 bg-emerald-400/12 text-emerald-300">
+            <StatusIcon className="h-12 w-12" />
+          </div>
+          <h1 className="mt-8 text-5xl font-heading font-black uppercase tracking-[-0.05em] text-emerald-300 sm:text-6xl lg:text-7xl">
+            {ticket.status === "Valid"
+              ? t("headline_valid")
+              : ticket.status === "Cancelled"
+                ? t("headline_cancelled")
+                : t("headline_updated")}
+          </h1>
+          <p className="mt-5 text-sm uppercase tracking-[0.28em] text-slate-400 ">
+            {t("order_id")}: #{ticket.id.slice(0, 8).toUpperCase()}
+          </p>
+          <div className="mx-auto mt-4 h-1 w-28 rounded-full bg-emerald-400" />
+        </section>
+
+        <section className="mt-10 grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_420px]">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <MatchdayPanel className="overflow-hidden border-emerald-400/14 shadow-[0_30px_80px_-48px_rgba(0,0,0,0.88)]">
+              <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_260px]">
+                <div>
+                  <div className="text-[12px] font-bold uppercase tracking-[0.28em] text-emerald-300">
+                    {t("verified_badge")}
+                  </div>
+                  <h2 className="mt-4 max-w-xl text-4xl font-heading font-black uppercase leading-[1.02] tracking-[-0.04em] text-white ">
+                    {matchTitle}
+                  </h2>
+
+                  <div className="mt-8 grid gap-5 sm:grid-cols-2">
+                    <MatchdayDetailBlock label={t("date_label")} value={matchDay} />
+                    <MatchdayDetailBlock label={t("kickoff_label")} value={kickoffTime} />
+                    <MatchdayDetailBlock label={t("stadium")} value={ticket.matches?.stadium || t("stadium_updating")} />
+                    <MatchdayDetailBlock label={t("seat")} value={ticket.seat} />
+                  </div>
+
+                  <div className="mt-8 border-t border-white/10 pt-5">
+                    <div className="inline-flex items-center gap-2 text-sm uppercase tracking-[0.18em] text-slate-300 ">
+                      <ShieldCheck className="h-4 w-4 text-emerald-300" />
+                      {t("verified_by")}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center justify-center rounded-[28px] border border-white/10 bg-white/5 p-5 text-center  ">
+                  <div className="rounded-[24px] bg-white p-4 shadow-[0_20px_50px_-24px_rgba(15,23,42,0.22)] ">
+                    <QRCodeSVG data={ticket.ai_validation_hash} />
+                  </div>
+                  <div className="mt-4 font-mono text-sm text-slate-400 ">#{ticket.id.slice(0, 8).toUpperCase()}-VALID</div>
+                </div>
+              </div>
+            </MatchdayPanel>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <InfoPanel
+                title={t("access_title")}
+                description={t("access_desc")}
+              />
+              <InfoPanel
+                title={t("travel_title")}
+                description={
+                  ticket.matches?.stadium
+                    ? t("travel_desc_with_seat", { seat: ticket.seat })
+                    : t("travel_desc_default")
+                }
+              />
+            </div>
+          </motion.div>
+
+          <motion.aside initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="space-y-5">
+            <MatchdayPanel className="border-emerald-400/12 bg-[linear-gradient(180deg,rgba(8,35,25,0.96),rgba(4,20,14,0.99))] p-6">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-1 rounded-full bg-emerald-400" />
+                <h3 className="text-2xl font-heading font-black uppercase tracking-[-0.03em] text-white">
+                  {t("order_summary")}
+                </h3>
+              </div>
+
+              <div className="mt-8 space-y-5 text-slate-300">
+                <MatchdaySummaryRow
+                  label={t("ticket_line")}
+                  value={`${ticket.seat} - 1 ${t("ticket_unit")}`}
+                />
+                <MatchdaySummaryRow
+                  label={t("price_paid")}
+                  value={`${ticket.price_paid.toLocaleString(locale)} VND`}
+                />
+                <MatchdaySummaryRow
+                  label={t("booked_at")}
+                  value={purchaseDate.toLocaleString(locale)}
+                />
+              </div>
+
+              <div className="mt-8 border-t border-white/10 pt-6">
+                <div className="flex items-end justify-between gap-3">
+                    <span className="text-xl font-heading font-black uppercase text-white ">
+                    {t("total_paid")}
+                  </span>
+                  <span className="text-4xl font-heading font-black tracking-[-0.04em] text-emerald-300">
+                    {ticket.price_paid.toLocaleString(locale)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-8 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex h-14 w-full items-center justify-center gap-3 rounded-[18px] bg-emerald-400 px-5 text-sm font-semibold uppercase tracking-[0.2em] text-slate-950 transition-colors hover:bg-emerald-300"
+                >
+                  <Download className="h-4 w-4" />
+                  {t("print_or_save")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyHash}
+                  className="page-button-secondary inline-flex h-14 w-full items-center justify-center gap-3 rounded-[18px] px-5 text-sm font-semibold uppercase tracking-[0.2em] "
+                >
+                  <Copy className="h-4 w-4" />
+                  {copiedHash ? t("copy_hash_done") : t("copy_hash")}
+                </button>
+              </div>
+
+              <MatchdayInfoField label={t("ticket_status")} className="mt-5">
+                <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] ${status.panel} ${status.accent}`}>
+                  <StatusIcon className="h-4 w-4" />
+                  {isVietnamese ? t(`status_${ticket.status.toLowerCase()}`) : status.title}
+                </div>
+              </MatchdayInfoField>
+
+              {ticket.status === "Valid" ? (
+                <div className="mt-5">
+                  {!showCancelConfirm ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowCancelConfirm(true)}
+                      className="text-sm font-semibold uppercase tracking-[0.18em] text-rose-300 transition-colors hover:text-rose-200"
+                    >
+                      {t("cancel_this_ticket")}
+                    </button>
+                  ) : (
+                    <div className="rounded-[22px] border border-rose-400/18 bg-rose-400/10 p-4">
+                      <p className="text-sm leading-6 text-slate-300 ">{t("cancel_confirm")}</p>
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <NeonButton
+                          onClick={handleCancelTicket}
+                          disabled={isCancelling}
+                          className="rounded-[16px] !bg-rose-500 px-4 text-xs uppercase tracking-[0.18em] text-white hover:!bg-rose-400"
+                        >
+                          {isCancelling ? t("cancelling") : t("confirm_cancel_short")}
+                        </NeonButton>
+                        <button type="button" onClick={() => setShowCancelConfirm(false)} className="text-sm font-medium text-slate-400 ">
+                          {t("keep_ticket_short")}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </MatchdayPanel>
+
+            <Link href="/matches" className="theme-link-accent inline-flex items-center gap-3 text-lg font-semibold uppercase tracking-[0.18em]">
+              <ArrowLeft className="h-5 w-5" />
+              {t("back_to_matches")}
+            </Link>
+          </motion.aside>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function InfoPanel({ description, title }: { description: string; title: string }) {
+  return (
+    <MatchdayPanel className="p-5 shadow-[0_20px_54px_-40px_rgba(0,0,0,0.8)]">
+      <div className="text-xl font-heading font-black uppercase tracking-[-0.02em] text-white ">{title}</div>
+      <p className="mt-3 text-sm leading-7 text-slate-300 ">{description}</p>
+    </MatchdayPanel>
+  );
 }

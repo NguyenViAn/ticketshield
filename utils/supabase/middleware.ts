@@ -1,21 +1,24 @@
-﻿import { createServerClient } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { routing } from '@/i18n/routing';
+import { isRoutingLocale, routing } from '@/i18n/routing';
 
 const PROTECTED_ROUTE_REGEXES = [
     /^\/(en|vi)?\/?history/i,
     /^\/(en|vi)?\/?payment/i,
     /^\/(en|vi)?\/?profile/i,
+    /^\/(en|vi)?\/?admin/i,
 ];
+
+const ADMIN_ROUTE_REGEX = /^\/(en|vi)?\/?admin/i;
 
 function resolveLocale(request: NextRequest) {
     const detectedLocale = request.nextUrl.locale;
-    if (detectedLocale && routing.locales.includes(detectedLocale as any)) {
+    if (isRoutingLocale(detectedLocale)) {
         return detectedLocale;
     }
 
     const [firstSegment] = request.nextUrl.pathname.split('/').filter(Boolean);
-    if (firstSegment && routing.locales.includes(firstSegment as any)) {
+    if (isRoutingLocale(firstSegment)) {
         return firstSegment;
     }
 
@@ -62,7 +65,9 @@ export async function updateSession(request: NextRequest) {
 
     const pathname = request.nextUrl.pathname;
     const isProtectedRoute = PROTECTED_ROUTE_REGEXES.some((regex) => regex.test(pathname));
+    const isAdminRoute = ADMIN_ROUTE_REGEX.test(pathname);
 
+    // Not logged in → redirect to login
     if (!user && isProtectedRoute) {
         const locale = resolveLocale(request);
         const url = request.nextUrl.clone()
@@ -70,6 +75,18 @@ export async function updateSession(request: NextRequest) {
         url.search = ''
         url.searchParams.set('redirect', buildRedirectTarget(request, locale))
         return NextResponse.redirect(url)
+    }
+
+    // Admin route but user is not admin → redirect to homepage
+    if (isAdminRoute && user) {
+        const role = user.user_metadata?.role;
+        if (role !== 'admin') {
+            const locale = resolveLocale(request);
+            const url = request.nextUrl.clone();
+            url.pathname = `/${locale}`;
+            url.search = '';
+            return NextResponse.redirect(url);
+        }
     }
 
     return supabaseResponse

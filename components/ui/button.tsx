@@ -5,20 +5,20 @@ import { Slot } from "radix-ui"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-semibold tracking-[-0.01em] transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-emerald-500/15 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-semibold tracking-[-0.01em] transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-emerald-500/15 aria-invalid:ring-destructive/20  aria-invalid:border-destructive",
   {
     variants: {
       variant: {
-        default: "bg-[linear-gradient(135deg,#16a34a,#0ea5e9)] text-white shadow-[0_20px_50px_-28px_rgba(14,165,233,0.35)] hover:-translate-y-0.5 hover:opacity-95",
+        default: "bg-emerald-700 text-white shadow-[0_14px_30px_-22px_rgba(5,150,105,0.24)] hover:-translate-y-0.5 hover:bg-emerald-600",
         destructive:
-          "bg-destructive text-white shadow-sm hover:-translate-y-0.5 hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "bg-destructive text-white shadow-sm hover:-translate-y-0.5 hover:bg-destructive/90 focus-visible:ring-destructive/20  ",
         outline:
-          "border border-slate-200 bg-white text-slate-900 shadow-[0_12px_30px_-24px_rgba(15,23,42,0.25)] hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50/50 dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+          "border border-border/80 bg-card/90 text-foreground shadow-[0_10px_22px_-20px_rgba(15,23,42,0.14)] hover:-translate-y-0.5 hover:border-emerald-400/24 hover:bg-emerald-500/10    ",
         secondary:
-          "bg-slate-100 text-slate-900 hover:-translate-y-0.5 hover:bg-slate-200/80",
+          "bg-secondary text-secondary-foreground hover:-translate-y-0.5 hover:bg-secondary/80",
         ghost:
-          "hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-accent/50",
-        link: "rounded-none px-0 text-emerald-700 underline-offset-4 hover:underline",
+          "text-slate-300 hover:bg-accent/85 hover:text-white   ",
+        link: "rounded-none px-0 text-emerald-300 underline-offset-4 hover:text-emerald-200 hover:underline ",
       },
       size: {
         default: "h-10 px-5 py-2.5 has-[>svg]:px-4",

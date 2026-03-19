@@ -24,6 +24,17 @@ export interface Promotion {
     gradientCode: string;
 }
 
+export interface PromotionRow {
+    id: string;
+    title_vi: string;
+    title_en: string;
+    description_vi: string;
+    description_en: string;
+    discount: string;
+    gradient_code: string;
+    active: boolean;
+}
+
 export type TicketStatus = "Valid" | "Used" | "Cancelled" | "Suspended";
 
 export interface Ticket {
@@ -41,4 +52,32 @@ export interface Ticket {
 // Wrapper for relational JOIN queries
 export interface TicketWithMatch extends Ticket {
     matches: Match;
+}
+
+export interface AdminStats {
+    matchCount: number;
+    ticketCount: number;
+    totalRevenue: number;
+    blockedUserCount: number;
+}
+
+export interface BlockedUser {
+    id: string;
+    user_id: string;
+    reason: string;
+    blocked_by: string | null;
+    blocked_at: string;
+}
+
+export interface AdminTicket extends Ticket {
+    matches: {
+        home_team: string;
+        away_team: string;
+        stadium: string;
+        date: string;
+    };
+}
+
+export interface AdminPromotion extends PromotionRow {
+    created_at: string;
 }

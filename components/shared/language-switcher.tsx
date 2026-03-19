@@ -1,24 +1,65 @@
 'use client';
 
-import { useLocale } from 'next-intl';
-import { useRouter, usePathname } from '@/i18n/routing';
+import * as React from 'react';
+import { useLocale, useTranslations } from 'next-intl';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { Globe } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Globe } from 'lucide-react';
+import { routing, type AppLocale } from '@/i18n/routing';
 
 export function LanguageSwitcher() {
     const locale = useLocale();
-    const router = useRouter();
+    const t = useTranslations('LanguageSwitcher');
     const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const [isMounted, setIsMounted] = React.useState(false);
+    const [isPending, startTransition] = React.useTransition();
 
-    function switchLanguage(newLocale: 'en' | 'vi') {
-        router.replace(pathname, { locale: newLocale });
+    React.useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    function switchLanguage(newLocale: AppLocale) {
+        const localePattern = new RegExp(`^/(${routing.locales.join('|')})(?=/|$)`);
+        const normalizedPath = pathname.replace(localePattern, '') || '/';
+        const nextPath = normalizedPath === '/' ? `/${newLocale}` : `/${newLocale}${normalizedPath}`;
+        const query = searchParams.toString();
+        const nextUrl = query ? `${nextPath}?${query}` : nextPath;
+
+        startTransition(() => {
+            window.location.assign(nextUrl);
+        });
+    }
+
+    if (!isMounted) {
+        return (
+            <Button
+                variant="ghost"
+                size="sm"
+                aria-label={t('label')}
+                className="theme-control-surface h-9 w-16 rounded-full px-0 text-[11px] font-bold uppercase tracking-widest will-change-auto"
+            >
+                {locale === 'en' ? (
+                    <span className="flex items-center gap-1.5"><Globe className="w-4 h-4 text-brand-blue" /> EN</span>
+                ) : (
+                    <span className="flex items-center gap-1.5"><Globe className="w-4 h-4 text-brand-red" /> VI</span>
+                )}
+            </Button>
+        );
     }
 
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="w-16 px-0 font-bold tracking-widest text-[11px] uppercase bg-transparent hover:bg-slate-50 text-slate-600">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={t('label')}
+                    disabled={isPending}
+                    className="theme-control-surface h-9 w-16 rounded-full px-0 text-[11px] font-bold uppercase tracking-widest will-change-auto"
+                >
                     {locale === 'en' ? (
                         <span className="flex items-center gap-1.5"><Globe className="w-4 h-4 text-brand-blue" /> EN</span>
                     ) : (
@@ -26,18 +67,20 @@ export function LanguageSwitcher() {
                     )}
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-32 min-w-[8rem]">
+            <DropdownMenuContent align="end" className="theme-shell w-32 min-w-[8rem] rounded-2xl p-1.5">
                 <DropdownMenuItem
-                    className={`cursor-pointer font-medium text-sm ${locale === 'vi' ? 'bg-slate-50 text-brand-green' : ''}`}
-                    onClick={() => switchLanguage('vi')}
+                    className={`cursor-pointer rounded-xl text-sm font-medium ${locale === 'vi' ? 'bg-emerald-500/10 text-brand-green ' : 'theme-copy'}`}
+                    disabled={isPending || locale === 'vi'}
+                    onSelect={() => switchLanguage('vi')}
                 >
-                    🇻🇳 Tiếng Việt
+                    {t('vi')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                    className={`cursor-pointer font-medium text-sm ${locale === 'en' ? 'bg-slate-50 text-brand-green' : ''}`}
-                    onClick={() => switchLanguage('en')}
+                    className={`cursor-pointer rounded-xl text-sm font-medium ${locale === 'en' ? 'bg-emerald-500/10 text-brand-green ' : 'theme-copy'}`}
+                    disabled={isPending || locale === 'en'}
+                    onSelect={() => switchLanguage('en')}
                 >
-                    🇬🇧 English
+                    {t('en')}
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
