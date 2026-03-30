@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
   ArrowRight,
   ArrowUpCircle,
-  BellRing,
   Camera,
   Check,
   CreditCard,
@@ -49,11 +48,6 @@ export default function ProfilePage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [balanceOverride, setBalanceOverride] = useState<number | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [settings, setSettings] = useState({
-    matchReminders: true,
-    priceAlerts: true,
-    twoFactor: false,
-  });
 
   useEffect(() => {
     if (!authLoading && !isLoggedIn) {
@@ -425,35 +419,6 @@ export default function ProfilePage() {
           <div className="space-y-6">
             <MatchdayPanel>
               <MatchdayPanelHeader
-                title={t("settings_title")}
-                icon={<BellRing className="h-5 w-5 text-emerald-300" />}
-              />
-              <div className="space-y-5">
-                <SettingRow
-                  title={t("setting_match_reminders")}
-                  description={t("setting_match_reminders_desc")}
-                  enabled={settings.matchReminders}
-                  onToggle={() =>
-                    setSettings((current) => ({ ...current, matchReminders: !current.matchReminders }))
-                  }
-                />
-                <SettingRow
-                  title={t("setting_price_alerts")}
-                  description={t("setting_price_alerts_desc")}
-                  enabled={settings.priceAlerts}
-                  onToggle={() => setSettings((current) => ({ ...current, priceAlerts: !current.priceAlerts }))}
-                />
-                <SettingRow
-                  title={t("setting_two_factor")}
-                  description={t("setting_two_factor_desc")}
-                  enabled={settings.twoFactor}
-                  onToggle={() => setSettings((current) => ({ ...current, twoFactor: !current.twoFactor }))}
-                />
-              </div>
-            </MatchdayPanel>
-
-            <MatchdayPanel>
-              <MatchdayPanelHeader
                 title={t("connected_title")}
                 icon={<Smartphone className="h-5 w-5 text-cyan-300" />}
               />
@@ -491,40 +456,6 @@ export default function ProfilePage() {
         </section>
       </div>
     </main>
-  );
-}
-
-function SettingRow({
-  description,
-  enabled,
-  onToggle,
-  title,
-}: {
-  description: string;
-  enabled: boolean;
-  onToggle: () => void;
-  title: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-[22px] border border-white/10 bg-white/5 px-4 py-4  ">
-      <div>
-        <div className="text-xl font-semibold text-white ">{title}</div>
-        <div className="mt-1 text-sm leading-6 text-slate-300 ">{description}</div>
-      </div>
-      <button
-        type="button"
-        onClick={onToggle}
-        className={`relative h-9 w-16 rounded-full border transition-colors ${
-          enabled ? "border-emerald-300/30 bg-emerald-300" : "border-white/10 bg-white/5  "
-        }`}
-      >
-        <span
-          className={`absolute top-1 h-7 w-7 rounded-full bg-white transition-transform ${
-            enabled ? "translate-x-8" : "translate-x-1"
-          }`}
-        />
-      </button>
-    </div>
   );
 }
 

@@ -17,13 +17,33 @@ export default async function SeatsPage({ params }: { params: Promise<{ matchId:
 
   const { data: match, error } = await supabase
     .from("matches")
-    .select("*, tournaments(name, logo_url)")
+    .select("*")
     .eq("id", matchId)
-    .single();
+    .maybeSingle();
 
-  if (error || !match) {
+  if (error) {
     console.error("Failed to fetch match for seats page. ID:", matchId, "Error:", error);
     return notFound();
+  }
+
+  if (!match) {
+    return notFound();
+  }
+
+  let tournament: { name: string; logo_url: string | null } | null = null;
+
+  if (match.tournament_id) {
+    const { data: tournamentData, error: tournamentError } = await supabase
+      .from("tournaments")
+      .select("name, logo_url")
+      .eq("id", match.tournament_id)
+      .maybeSingle();
+
+    if (tournamentError) {
+      console.error("Failed to fetch tournament for seats page. Match ID:", matchId, "Error:", tournamentError);
+    } else {
+      tournament = tournamentData;
+    }
   }
 
   const isVietnamese = locale.startsWith("vi");
@@ -34,7 +54,7 @@ export default async function SeatsPage({ params }: { params: Promise<{ matchId:
     hour: "2-digit",
     minute: "2-digit",
   });
-  const leagueLogo = resolveLeagueLogo(match.tournaments?.name, match.tournaments?.logo_url);
+  const leagueLogo = resolveLeagueLogo(tournament?.name, tournament?.logo_url);
 
   return (
     <main className="page-premium pb-20 pt-5 sm:pt-7">
@@ -58,7 +78,7 @@ export default async function SeatsPage({ params }: { params: Promise<{ matchId:
               <div className="inline-flex items-center gap-3 rounded-full border border-emerald-400/14 bg-emerald-400/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-300">
                 <span>Live selection</span>
                 <span className="text-slate-500">&middot;</span>
-                <span>{match.tournaments?.name || "Featured Match"}</span>
+                <span>{tournament?.name || "Featured Match"}</span>
               </div>
 
               <div className="inline-flex items-center gap-4 rounded-[24px] border border-emerald-400/14 bg-[linear-gradient(180deg,rgba(16,185,129,0.08),rgba(255,255,255,0.02))] px-4 py-3 shadow-[0_18px_42px_-32px_rgba(16,185,129,0.24)] backdrop-blur-sm">
@@ -79,7 +99,7 @@ export default async function SeatsPage({ params }: { params: Promise<{ matchId:
                     {isVietnamese ? "Giải đấu" : "Competition"}
                   </div>
                   <div className="mt-1 text-base font-black uppercase tracking-[0.22em] text-emerald-300">
-                    {match.tournaments?.name || "V-LEAGUE"}
+                    {tournament?.name || "V-LEAGUE"}
                   </div>
                 </div>
               </div>
