@@ -273,7 +273,7 @@ export default function HomePageClient({
                 transition={{ duration: 18, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
               />
               <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(2,6,23,0.86),rgba(2,6,23,0.72)_38%,rgba(2,6,23,0.46)_70%,rgba(2,6,23,0.24)_100%)]" />
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.2)_0%,rgba(2,6,23,0.4)_28%,rgba(2,6,23,0.68)_68%,#020617_100%)]" />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,27,49,0.16)_0%,rgba(17,27,49,0.34)_28%,rgba(17,27,49,0.58)_68%,#111b31_100%)]" />
 
               <div className="relative z-10 grid gap-8 xl:grid-cols-[minmax(0,1.06fr)_minmax(22rem,0.94fr)] xl:items-end xl:gap-10">
                 <motion.div
@@ -306,7 +306,7 @@ export default function HomePageClient({
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: 0.12 }}
-                  className="rounded-[30px] border border-white/10 bg-black/20 p-5 shadow-[0_22px_52px_-34px_rgba(0,0,0,0.5)] backdrop-blur-2xl sm:p-6"
+                  className="rounded-[30px] border border-white/12 bg-slate-800/42 p-5 shadow-[0_22px_52px_-34px_rgba(0,0,0,0.4)] backdrop-blur-2xl sm:p-6"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>

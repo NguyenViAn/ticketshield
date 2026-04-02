@@ -318,7 +318,7 @@ export default function ProfilePage() {
                         value={editName}
                         onChange={(event) => setEditName(event.target.value)}
                         disabled={isUpdating}
-                        className="h-14 flex-1 rounded-[18px] border border-white/10 bg-[#071b14] px-4 text-lg text-white outline-none transition-all focus:border-emerald-400/30 focus:ring-4 focus:ring-emerald-500/10"
+                        className="page-input-surface h-14 flex-1 px-4 text-lg transition-all focus:border-emerald-400/30 focus:ring-4 focus:ring-emerald-500/10"
                       />
                       <button
                         onClick={handleUpdateName}

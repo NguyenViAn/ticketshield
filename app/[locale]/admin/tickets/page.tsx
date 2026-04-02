@@ -101,6 +101,9 @@ export default function AdminTicketsPage() {
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                   {t("seat")}
                 </th>
+                <th className="hidden px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 xl:table-cell">
+                  Booking Group
+                </th>
                 <th className="hidden px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 md:table-cell">
                   {t("price")}
                 </th>
@@ -119,7 +122,7 @@ export default function AdminTicketsPage() {
               {isLoading ? (
                 [...Array(5)].map((_, index) => (
                   <tr key={index} className="border-b border-white/10">
-                    <td colSpan={6} className="px-4 py-4">
+                    <td colSpan={7} className="px-4 py-4">
                       <div className="h-5 animate-pulse rounded bg-white/5" />
                     </td>
                   </tr>
@@ -140,6 +143,9 @@ export default function AdminTicketsPage() {
                       <div className="mt-0.5 pl-6 text-xs text-slate-400">ID: {ticket.id.slice(0, 8)}...</div>
                     </td>
                     <td className="px-4 py-3 text-slate-300">{ticket.seat}</td>
+                    <td className="hidden px-4 py-3 font-mono text-xs text-slate-400 xl:table-cell">
+                      {(ticket.booking_group_id ?? ticket.id).slice(0, 8).toUpperCase()}
+                    </td>
                     <td className="hidden px-4 py-3 text-right font-medium text-emerald-400 md:table-cell">
                       {formatCurrency(ticket.price_paid, locale)} VND
                     </td>
@@ -158,10 +164,10 @@ export default function AdminTicketsPage() {
                         <select
                           value={ticket.status}
                           onChange={(event) => handleStatusChange(ticket.id, event.target.value)}
-                          className="rounded-lg border border-white/10 bg-slate-950 px-2 py-1 text-xs text-slate-200 outline-none transition-colors focus:border-emerald-500/40"
+                          className="rounded-lg border border-white/10 bg-slate-800/90 px-2 py-1 text-xs text-slate-100 outline-none transition-colors focus:border-emerald-500/40"
                         >
                           {STATUS_OPTIONS.map((status) => (
-                            <option key={status} value={status} className="bg-slate-950 text-slate-100">
+                            <option key={status} value={status} className="bg-slate-800 text-slate-100">
                               {status}
                             </option>
                           ))}
@@ -172,7 +178,7 @@ export default function AdminTicketsPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
                     {t("no_tickets")}
                   </td>
                 </tr>

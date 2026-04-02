@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
   fetchAdminStats,
+  fetchAllBookingEvents,
   fetchAllMatches,
   fetchAllPromotions,
   fetchAllTickets,
   fetchBlockedUsers,
 } from "@/lib/services/admin";
-import type { AdminPromotion, AdminStats, AdminTicket, BlockedUser, Match } from "@/types";
+import type { AdminPromotion, AdminStats, AdminTicket, BlockedUser, BookingEvent, Match } from "@/types";
 import { createClient } from "@/utils/supabase/client";
 
 function useAdminData<T>(fetcher: (supabase: ReturnType<typeof createClient>) => Promise<T>, initial: T) {
@@ -51,6 +52,10 @@ export function useAdminMatches() {
 
 export function useAdminTickets() {
   return useAdminData<AdminTicket[]>((supabase) => fetchAllTickets(supabase), []);
+}
+
+export function useAdminBookingEvents() {
+  return useAdminData<BookingEvent[]>((supabase) => fetchAllBookingEvents(supabase), []);
 }
 
 export function useAdminPromotions() {

@@ -131,7 +131,7 @@ export function TicketTierList({ matchId, basePrice }: { matchId: string; basePr
             </div>
             <div className="mt-2 min-h-5 text-sm text-slate-400">{t("seats_left", { count: available })}</div>
 
-            <div className="mt-6 rounded-[22px] border border-white/8 bg-black/12 px-4 py-4">
+            <div className="theme-inset-surface mt-6 rounded-[22px] px-4 py-4">
               <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">{t("from_label")}</div>
               <div className="mt-2 flex items-end gap-2">
                 <div className="text-[2.2rem] font-heading font-black leading-none tracking-[-0.05em] text-emerald-300">

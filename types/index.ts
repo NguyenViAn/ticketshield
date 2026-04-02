@@ -42,6 +42,7 @@ export interface Ticket {
     user_id: string;
     match_id: string;
     seat: string;
+    booking_group_id: string | null;
     price_paid: number;
     status: string; // 'Valid', 'Used', 'Cancelled', etc.
     ai_validation_hash: string;
@@ -76,6 +77,32 @@ export interface AdminTicket extends Ticket {
         stadium: string;
         date: string;
     };
+}
+
+export type BookingEventType =
+    | "seat_select"
+    | "seat_deselect"
+    | "checkout_attempt"
+    | "checkout_success"
+    | "checkout_failed";
+
+export interface BookingEventMetadata {
+    ipAddress?: string | null;
+    retryCount?: number;
+    seatIds?: string[];
+    selectedCount?: number;
+    timeSinceLastActionMs?: number | null;
+}
+
+export interface BookingEvent {
+    id: string;
+    session_id: string;
+    user_id: string | null;
+    match_id: string;
+    event_type: BookingEventType;
+    seat_count: number;
+    metadata: BookingEventMetadata | null;
+    created_at: string;
 }
 
 export interface AdminPromotion extends PromotionRow {

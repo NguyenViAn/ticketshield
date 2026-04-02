@@ -1,14 +1,21 @@
 "use client";
 
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Eye, MapPinned, ShieldCheck, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
 import { NeonButton } from "@/components/ui/neon-button";
+import { logBookingEvent } from "@/lib/services/booking-events";
 import { createClient } from "@/utils/supabase/client";
-import { findFirstAvailableSeat, type TicketTierId } from "@/utils/tickets";
+import {
+  findFirstAvailableSeat,
+  getSeatSelectionSummary,
+  getSeatsTotalPrice,
+  MAX_BOOKING_SEATS,
+  type TicketTierId,
+} from "@/utils/tickets";
 
 export interface SeatMapRadialProps {
   matchId?: string;
@@ -121,14 +128,21 @@ function formatHoldTime(totalSeconds: number) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+function getInteractionTimestamp() {
+  return Date.now();
+}
+
 export function SeatMapRadial({ matchId, basePrice = 2500000 }: SeatMapRadialProps) {
-  const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
+  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [takenSeats, setTakenSeats] = useState<string[]>([]);
   const [hoveredSeat, setHoveredSeat] = useState<string | null>(null);
   const [holdSeconds, setHoldSeconds] = useState(HOLD_DURATION_SECONDS);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const router = useRouter();
   const locale = useLocale();
+  const supabase = createClient();
   const t = useTranslations("SeatMapRadial");
+  const lastInteractionAtRef = useRef<number | null>(null);
 
   const resetHoldWindow = () => {
     setHoldSeconds(HOLD_DURATION_SECONDS);
@@ -138,8 +152,6 @@ export function SeatMapRadial({ matchId, basePrice = 2500000 }: SeatMapRadialPro
     if (!matchId) {
       return;
     }
-
-    const supabase = createClient();
 
     const fetchTickets = async () => {
       const { data, error } = await supabase
@@ -151,12 +163,12 @@ export function SeatMapRadial({ matchId, basePrice = 2500000 }: SeatMapRadialPro
       if (!error && data) {
         const seats = data.map((ticket) => ticket.seat);
         setTakenSeats(seats);
-        setSelectedSeat((currentSeat) => (currentSeat && seats.includes(currentSeat) ? null : currentSeat));
+        setSelectedSeats((currentSeats) => currentSeats.filter((seatId) => !seats.includes(seatId)));
       }
     };
 
-    fetchTickets();
-  }, [matchId]);
+    void fetchTickets();
+  }, [matchId, supabase]);
 
   useEffect(() => {
     const handleFocusTier = (event: Event) => {
@@ -173,18 +185,55 @@ export function SeatMapRadial({ matchId, basePrice = 2500000 }: SeatMapRadialPro
         return;
       }
 
-      resetHoldWindow();
-      setSelectedSeat(suggestedSeat);
+      let nextSeatsForLog: string[] = [];
+      let shouldLogSelection = false;
+      setSelectedSeats((currentSeats) => {
+        if (currentSeats.includes(suggestedSeat)) {
+          nextSeatsForLog = currentSeats;
+          return currentSeats;
+        }
+
+        if (currentSeats.length >= MAX_BOOKING_SEATS) {
+          setFeedbackMessage(`Maximum ${MAX_BOOKING_SEATS} seats per booking.`);
+          nextSeatsForLog = currentSeats;
+          return currentSeats;
+        }
+
+        const nextSeats = [...currentSeats, suggestedSeat].sort((left, right) =>
+          left.localeCompare(right, undefined, { numeric: true }),
+        );
+        nextSeatsForLog = nextSeats;
+        shouldLogSelection = true;
+        setFeedbackMessage(null);
+        resetHoldWindow();
+        return nextSeats;
+      });
+
+      if (matchId && shouldLogSelection) {
+        const now = Date.now();
+        const timeSinceLastActionMs = lastInteractionAtRef.current ? now - lastInteractionAtRef.current : null;
+        lastInteractionAtRef.current = now;
+        void logBookingEvent(supabase, {
+          eventType: "seat_select",
+          matchId,
+          metadata: {
+            seatIds: nextSeatsForLog,
+            selectedCount: nextSeatsForLog.length,
+            timeSinceLastActionMs,
+          },
+          seatCount: nextSeatsForLog.length,
+        });
+      }
     };
 
     window.addEventListener("ticketshield:focus-seat-zone", handleFocusTier as EventListener);
     return () => {
       window.removeEventListener("ticketshield:focus-seat-zone", handleFocusTier as EventListener);
     };
-  }, [matchId, takenSeats]);
+  }, [matchId, supabase, takenSeats]);
 
   useEffect(() => {
-    if (!selectedSeat) {
+    if (!selectedSeats.length) {
       return;
     }
 
@@ -202,39 +251,87 @@ export function SeatMapRadial({ matchId, basePrice = 2500000 }: SeatMapRadialPro
     return () => {
       window.clearInterval(interval);
     };
-  }, [selectedSeat]);
+  }, [selectedSeats]);
 
-  const selectedZone =
-    selectedSeat ? SEAT_ZONES.find((zone) => selectedSeat.startsWith(`${zone.id}-`)) ?? null : null;
-  const selectedSeatNumber = selectedSeat?.split("-")[1] ?? "--";
-  const selectedPrice = selectedZone ? basePrice * selectedZone.priceMultiplier : null;
+  const sortedSelectedSeats = selectedSeats
+    .slice()
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+  const primarySelectedSeat = sortedSelectedSeats[0] ?? null;
+  const primarySelectedZone =
+    primarySelectedSeat
+      ? SEAT_ZONES.find((zone) => primarySelectedSeat.startsWith(`${zone.id}-`)) ?? null
+      : null;
+  const selectedTotal = getSeatsTotalPrice(basePrice, sortedSelectedSeats);
   const totalSeats = SEAT_ZONES.reduce((sum, zone) => sum + zone.count, 0);
   const occupancy = Math.round((takenSeats.length / totalSeats) * 100);
-  const selectedViewType = selectedZone
-    ? t(`view_types.${selectedZone.id.toLowerCase()}`)
-    : t("not_selected");
-
-  const trustItems = [t("guarantee_item_1"), t("guarantee_item_2"), t("guarantee_item_3")];
+  const trustItems = [
+    "Max 4 seats per booking",
+    "Seat conflicts checked in database",
+    "Risk scoring tracks real interactions",
+  ];
 
   const handleSeatClick = (seatId: string, isTaken: boolean) => {
-    if (isTaken) {
+    if (isTaken || !matchId) {
       return;
     }
 
-    setSelectedSeat((currentSeat) => {
-      const nextSeat = currentSeat === seatId ? null : seatId;
+    const now = getInteractionTimestamp();
+    const timeSinceLastActionMs = lastInteractionAtRef.current ? now - lastInteractionAtRef.current : null;
+    lastInteractionAtRef.current = now;
+
+    let nextSeatsForLog: string[] = [];
+    let eventType: "seat_select" | "seat_deselect" | null = null;
+
+    setSelectedSeats((currentSeats) => {
+      if (currentSeats.includes(seatId)) {
+        const nextSeats = currentSeats.filter((currentSeat) => currentSeat !== seatId);
+        nextSeatsForLog = nextSeats;
+        eventType = "seat_deselect";
+        setFeedbackMessage(null);
+        resetHoldWindow();
+        return nextSeats;
+      }
+
+      if (currentSeats.length >= MAX_BOOKING_SEATS) {
+        setFeedbackMessage(`Maximum ${MAX_BOOKING_SEATS} seats per booking.`);
+        nextSeatsForLog = currentSeats;
+        eventType = null;
+        return currentSeats;
+      }
+
+      const nextSeats = [...currentSeats, seatId].sort((left, right) =>
+        left.localeCompare(right, undefined, { numeric: true }),
+      );
+      nextSeatsForLog = nextSeats;
+      eventType = "seat_select";
+      setFeedbackMessage(null);
       resetHoldWindow();
-      return nextSeat;
+      return nextSeats;
     });
+
+    if (eventType) {
+      void logBookingEvent(supabase, {
+        eventType,
+        matchId,
+        metadata: {
+          seatIds: nextSeatsForLog,
+          selectedCount: nextSeatsForLog.length,
+          timeSinceLastActionMs,
+        },
+        seatCount: nextSeatsForLog.length,
+      });
+    }
   };
 
   const handleCheckout = () => {
-    if (!selectedSeat || !selectedZone) {
+    if (!matchId || !sortedSelectedSeats.length) {
       return;
     }
 
-    const price = basePrice * selectedZone.priceMultiplier;
-    router.push(`/${locale}/payment?matchId=${matchId || ""}&seatId=${selectedSeat}&price=${price}`);
+    const query = new URLSearchParams();
+    query.set("matchId", matchId);
+    sortedSelectedSeats.forEach((seatId) => query.append("seatId", seatId));
+    router.push(`/${locale}/payment?${query.toString()}`);
   };
 
   const handleChangeSection = () => {
@@ -250,7 +347,7 @@ export function SeatMapRadial({ matchId, basePrice = 2500000 }: SeatMapRadialPro
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
-        className="rounded-[30px] border border-emerald-500/12 bg-[linear-gradient(180deg,#061711,#04110d)] p-5 shadow-[0_26px_80px_-44px_rgba(0,0,0,0.7)]"
+        className="rounded-[30px] border border-emerald-500/12 bg-[linear-gradient(180deg,rgba(30,41,59,0.82),rgba(15,23,42,0.94))] p-5 shadow-[0_26px_80px_-44px_rgba(0,0,0,0.56)]"
       >
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -258,7 +355,7 @@ export function SeatMapRadial({ matchId, basePrice = 2500000 }: SeatMapRadialPro
             <div className="mt-1 text-sm text-slate-400">{t("map_hint")}</div>
           </div>
           <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-300">
-            {occupancy}% {t("occupancy_label")}
+            {occupancy}% occupied
           </div>
         </div>
 
@@ -300,7 +397,7 @@ export function SeatMapRadial({ matchId, basePrice = 2500000 }: SeatMapRadialPro
                         );
                         const seatId = `${zone.id}-${seatIndex + 1}`;
                         const isTaken = takenSeats.includes(seatId);
-                        const isSelected = selectedSeat === seatId;
+                        const isSelected = sortedSelectedSeats.includes(seatId);
                         const isAvailable = !isTaken;
 
                         return (
@@ -364,48 +461,74 @@ export function SeatMapRadial({ matchId, basePrice = 2500000 }: SeatMapRadialPro
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <LegendPill color="bg-emerald-400" label={t("available_label")} />
           <LegendPill color="bg-slate-500" label={t("sold_label")} />
-          <LegendPill color="bg-cyan-400" label={t("premium_zone_label")} />
+          <LegendPill color="bg-cyan-400" label="Max 4 seats" />
           <LegendPill color="bg-emerald-300 shadow-[0_0_12px_rgba(74,222,128,0.55)]" label={t("selected_label")} />
         </div>
       </motion.div>
 
       <div className="space-y-4 xl:sticky xl:top-24">
-        <div className="rounded-[26px] border border-emerald-500/12 bg-[linear-gradient(180deg,#0b2a1f,#071b15)] p-5 shadow-[0_24px_60px_-40px_rgba(0,0,0,0.72)]">
+        <div className="theme-inset-accent rounded-[26px] p-5 shadow-[0_24px_60px_-40px_rgba(0,0,0,0.52)]">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-400">{t("momentum_title")}</div>
-            <div className="text-2xl font-heading font-black text-emerald-300">{occupancy}%</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-400">Selection</div>
+            <div className="text-2xl font-heading font-black text-emerald-300">
+              {sortedSelectedSeats.length}/{MAX_BOOKING_SEATS}
+            </div>
           </div>
-          <div className="mt-3 h-3 rounded-full bg-black/30">
-            <div className="h-full rounded-full bg-[linear-gradient(90deg,#34d399,#86efac)]" style={{ width: `${occupancy}%` }} />
+          <div className="mt-3 h-3 rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,#34d399,#86efac)]"
+              style={{ width: `${(sortedSelectedSeats.length / MAX_BOOKING_SEATS) * 100}%` }}
+            />
           </div>
           <p className="mt-3 text-sm text-slate-400">
-            {t("occupancy_caption", { taken: takenSeats.length, total: totalSeats })}
+            {sortedSelectedSeats.length
+              ? getSeatSelectionSummary(sortedSelectedSeats)
+              : "Pick up to 4 seats for one checkout."}
           </p>
         </div>
 
-        <div className="rounded-[26px] border border-emerald-500/12 bg-[linear-gradient(180deg,#0b2a1f,#071b15)] p-6 shadow-[0_24px_60px_-40px_rgba(0,0,0,0.72)]">
+        <div className="theme-inset-accent rounded-[26px] p-6 shadow-[0_24px_60px_-40px_rgba(0,0,0,0.52)]">
           <div className="text-3xl font-heading font-black tracking-tight text-white">
-            {selectedZone ? `${t(`zones.${selectedZone.id.toLowerCase()}`)} ${selectedSeatNumber}` : t("no_seat_selected")}
+            {primarySelectedZone ? `${primarySelectedZone.id} block` : "No seats selected"}
           </div>
 
           <div className="mt-6 space-y-5">
-            <DetailRow label={t("row_label")} value={selectedZone?.rowLabel ?? "--"} />
-            <DetailRow label={t("seat_number_label")} value={selectedSeatNumber} />
-            <DetailRow label={t("view_type_label")} value={selectedViewType} icon={<Eye className="h-4 w-4 text-emerald-300" />} />
+            <DetailRow label="Selected seats" value={sortedSelectedSeats.length ? String(sortedSelectedSeats.length) : "--"} />
+            <DetailRow label="Seat list" value={sortedSelectedSeats.length ? getSeatSelectionSummary(sortedSelectedSeats) : "--"} />
+            <DetailRow
+              label="First seat"
+              value={primarySelectedSeat ?? "--"}
+              icon={<Eye className="h-4 w-4 text-emerald-300" />}
+            />
           </div>
 
-          <div className="mt-6 rounded-[18px] bg-black/28 p-4">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">{t("price_per_seat")}</div>
+          <div className="theme-inset-surface mt-6 rounded-[18px] p-4">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Total amount</div>
             <div className="mt-2 text-4xl font-heading font-black tracking-tight text-emerald-300">
-              {selectedPrice ? selectedPrice.toLocaleString(locale) : "--"}
+              {sortedSelectedSeats.length ? selectedTotal.toLocaleString(locale) : "--"}
             </div>
-            <div className="text-sm font-semibold text-slate-400">{selectedPrice ? t("currency_symbol") : ""}</div>
+            <div className="text-sm font-semibold text-slate-400">{sortedSelectedSeats.length ? t("currency_symbol") : ""}</div>
           </div>
+
+          {feedbackMessage ? (
+            <div className="mt-4 rounded-[18px] border border-amber-400/18 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+              {feedbackMessage}
+            </div>
+          ) : null}
 
           <div className="mt-6 space-y-3">
-            <NeonButton onClick={handleCheckout} disabled={!selectedSeat} className="h-14 w-full text-sm font-black uppercase tracking-[0.18em]">
+            <div className="flex flex-wrap gap-2">
+              {sortedSelectedSeats.map((seatId) => (
+                <SelectedSeatChip key={seatId} seatId={seatId} onRemove={() => handleSeatClick(seatId, false)} />
+              ))}
+            </div>
+            <NeonButton
+              onClick={handleCheckout}
+              disabled={!sortedSelectedSeats.length}
+              className="h-14 w-full text-sm font-black uppercase tracking-[0.18em]"
+            >
               <span className="inline-flex items-center gap-2">
-                {t("proceed_to_payment")}
+                Proceed to payment
                 <ArrowRight className="h-4 w-4" />
               </span>
             </NeonButton>
@@ -414,18 +537,18 @@ export function SeatMapRadial({ matchId, basePrice = 2500000 }: SeatMapRadialPro
               onClick={handleChangeSection}
               className="flex h-14 w-full items-center justify-center rounded-[18px] border border-emerald-400/16 bg-white/[0.03] text-sm font-semibold uppercase tracking-[0.18em] text-emerald-200 transition-colors hover:bg-white/[0.06]"
             >
-              {t("change_section")}
+              Change section
             </button>
           </div>
         </div>
 
-        <div className="rounded-[24px] border border-emerald-500/12 bg-[linear-gradient(180deg,#0b241c,#071b15)] p-5">
+        <div className="theme-inset-accent rounded-[24px] p-5">
           <div className="flex items-start gap-3">
             <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-400/12 text-emerald-300">
               <ShieldCheck className="h-5 w-5" />
             </span>
             <div>
-              <div className="text-sm font-black uppercase tracking-[0.14em] text-white">{t("guarantee_title")}</div>
+              <div className="text-sm font-black uppercase tracking-[0.14em] text-white">Booking guardrails</div>
               <div className="mt-2 space-y-2 text-sm text-slate-400">
                 {trustItems.map((item) => (
                   <div key={item} className="flex items-start gap-2">
@@ -436,10 +559,10 @@ export function SeatMapRadial({ matchId, basePrice = 2500000 }: SeatMapRadialPro
               </div>
             </div>
           </div>
-          <div className="mt-4 rounded-[18px] border border-white/8 bg-black/20 px-4 py-3 text-sm text-slate-300">
+          <div className="theme-inset-surface mt-4 rounded-[18px] px-4 py-3 text-sm text-slate-300">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
               <MapPinned className="h-4 w-4" />
-              {t("selection_window")}
+              Selection window
             </div>
             <div className="mt-2 text-2xl font-heading font-black text-white">{formatHoldTime(holdSeconds)}</div>
           </div>
@@ -463,9 +586,21 @@ function DetailRow({ label, value, icon }: { label: string; value: string; icon?
 
 function LegendPill({ color, label }: { color: string; label: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-[18px] border border-white/8 bg-black/16 px-4 py-3 text-sm text-slate-300">
+    <div className="theme-inset-surface flex items-center gap-3 rounded-[18px] px-4 py-3 text-sm text-slate-300">
       <span className={`h-3 w-3 rounded-full ${color}`} />
       <span>{label}</span>
     </div>
+  );
+}
+
+function SelectedSeatChip({ seatId, onRemove }: { seatId: string; onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      className="inline-flex items-center rounded-full border border-emerald-400/18 bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-100 transition-colors hover:bg-emerald-400/16"
+    >
+      {seatId}
+    </button>
   );
 }

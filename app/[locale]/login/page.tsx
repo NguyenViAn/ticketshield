@@ -336,7 +336,7 @@ function LoginContent() {
                       <span className="w-full border-t border-white/10" />
                     </div>
                     <div className="relative flex justify-center text-xs font-bold uppercase tracking-[0.18em]">
-                      <span className="bg-[#0f172a] px-4 text-slate-400">{t("or_external")}</span>
+                      <span className="bg-[#111b31] px-4 text-slate-300">{t("or_external")}</span>
                     </div>
                   </div>
 
@@ -403,7 +403,7 @@ function LoginFallback() {
   const t = useTranslations("Login");
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0f172a] text-slate-300">
+    <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#111b31_0%,#101a2d_100%)] text-slate-300">
       <div className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-300">{t("initializing")}</div>
     </div>
   );

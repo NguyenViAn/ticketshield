@@ -110,10 +110,10 @@ export function MatchesFilter() {
   }, [activeLeague, supabase]);
 
   const fieldClassName =
-    "w-full rounded-[18px] border border-white/10 bg-[#071b14] px-4 py-3 text-sm text-slate-100 outline-none transition-all focus:border-emerald-400/40 focus:bg-[#082119] focus:ring-4 focus:ring-emerald-500/10";
+    "w-full rounded-[18px] border border-white/12 bg-white/[0.07] px-4 py-3 text-sm text-slate-100 outline-none transition-all focus:border-emerald-400/40 focus:bg-white/[0.1] focus:ring-4 focus:ring-emerald-500/10";
 
   return (
-    <div className="overflow-hidden rounded-[30px] border border-emerald-400/10 bg-[linear-gradient(180deg,rgba(6,24,17,0.96),rgba(3,16,11,0.98))] shadow-[0_28px_72px_-46px_rgba(0,0,0,0.82)]">
+    <div className="overflow-hidden rounded-[30px] border border-emerald-400/10 bg-[linear-gradient(180deg,rgba(30,41,59,0.82),rgba(15,23,42,0.92))] shadow-[0_28px_72px_-46px_rgba(0,0,0,0.58)]">
       <div className="border-b border-white/8 px-5 py-5">
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-400/14 bg-emerald-400/10 text-emerald-300">
@@ -223,7 +223,7 @@ export function MatchesFilter() {
                   className={`rounded-[18px] border px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] transition-all ${
                     isActive
                       ? "border-emerald-400/30 bg-emerald-400/12 text-emerald-200"
-                      : "border-white/10 bg-[#071b14] text-slate-400 hover:border-emerald-400/18 hover:text-slate-100"
+                      : "border-white/10 bg-white/[0.05] text-slate-300 hover:border-emerald-400/18 hover:text-slate-100"
                   }`}
                 >
                   {level === "All" ? t("allLevels") : `${t("levelPrefix")} ${level}`}
@@ -233,7 +233,7 @@ export function MatchesFilter() {
           </div>
         </div>
 
-        <div className="rounded-[24px] border border-emerald-400/12 bg-[linear-gradient(180deg,rgba(12,49,35,0.94),rgba(7,28,20,0.97))] p-4">
+        <div className="theme-inset-accent rounded-[24px] p-4">
           <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-300">
             {t("quick_reset_title")}
           </div>

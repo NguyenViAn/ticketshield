@@ -145,16 +145,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-300">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#111b31_0%,#101a2d_100%)] text-slate-300">
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.08),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.08),transparent_24%)]" />
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[300px] border-r border-white/10 bg-slate-950/80 backdrop-blur-xl xl:block">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[300px] border-r border-white/12 bg-slate-900/76 backdrop-blur-xl xl:block">
         {sidebar}
       </aside>
 
       {mobileOpen ? (
         <>
-          <button className="fixed inset-0 z-40 bg-black/60 xl:hidden" onClick={() => setMobileOpen(false)} />
-          <aside className="fixed inset-y-0 left-0 z-50 w-[300px] border-r border-white/10 bg-slate-950 xl:hidden">
+          <button className="theme-overlay-soft fixed inset-0 z-40 xl:hidden" onClick={() => setMobileOpen(false)} />
+          <aside className="fixed inset-y-0 left-0 z-50 w-[300px] border-r border-white/12 bg-slate-900/92 xl:hidden">
             <div className="flex h-16 items-center justify-end px-4">
               <button
                 className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-300"
@@ -169,7 +169,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       ) : null}
 
       <div className="relative xl:ml-[300px]">
-        <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 border-b border-white/12 bg-slate-900/78 backdrop-blur-xl">
           <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 xl:px-8">
             <div className="flex items-center gap-3 xl:hidden">
               <button

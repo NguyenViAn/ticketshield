@@ -12,7 +12,7 @@ import {
   Ticket,
   TrendingUp,
 } from "lucide-react";
-import { useAdminMatches, useAdminStats, useAdminTickets, useBlockedUsers } from "@/hooks/use-admin";
+import { useAdminBookingEvents, useAdminMatches, useAdminStats, useAdminTickets, useBlockedUsers } from "@/hooks/use-admin";
 import { buildDailyTrend, buildSecuritySessions, summarizeSecurity } from "@/lib/admin-security";
 import {
   AdminMetricCard,
@@ -40,12 +40,13 @@ export default function AdminDashboard() {
   const t = useTranslations("AdminDashboard");
   const { data: stats, isLoading: statsLoading } = useAdminStats();
   const { data: tickets, isLoading: ticketsLoading } = useAdminTickets();
+  const { data: bookingEvents, isLoading: bookingEventsLoading } = useAdminBookingEvents();
   const { data: matches, isLoading: matchesLoading } = useAdminMatches();
   const { data: blockedUsers } = useBlockedUsers();
 
   const sessions = useMemo(
-    () => buildSecuritySessions(tickets, matches, blockedUsers),
-    [tickets, matches, blockedUsers]
+    () => buildSecuritySessions(bookingEvents, matches, blockedUsers),
+    [bookingEvents, matches, blockedUsers]
   );
   const securitySummary = useMemo(() => summarizeSecurity(sessions), [sessions]);
   const salesTrend = useMemo(() => buildDailyTrend(tickets.map((ticket) => ticket.created_at)), [tickets]);
@@ -246,7 +247,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {matchesLoading ? (
+                {bookingEventsLoading || matchesLoading ? (
                   Array.from({ length: 5 }).map((_, index) => (
                     <tr key={index} className="border-b border-white/10">
                       <td className="px-5 py-4 sm:px-6" colSpan={5}>

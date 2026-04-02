@@ -64,13 +64,13 @@ export function IntroScreen({ onComplete }: IntroScreenProps) {
 
   return (
     <motion.div
-      className="fixed inset-0 z-[9999] overflow-y-auto bg-[linear-gradient(180deg,#020617_0%,#061018_58%,#07131d_100%)]"
+      className="fixed inset-0 z-[9999] overflow-y-auto bg-[linear-gradient(180deg,#111b31_0%,#14213a_56%,#101a2d_100%)]"
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: shouldReduceMotion ? 0.2 : 0.3, ease: "easeOut" }}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.12),transparent_26%),radial-gradient(circle_at_80%_18%,rgba(14,165,233,0.12),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(15,23,42,0.72),transparent_36%)]" />
-      <div className="absolute inset-x-0 bottom-0 h-48 bg-[linear-gradient(180deg,transparent,#020617)]" />
+      <div className="absolute inset-x-0 bottom-0 h-48 bg-[linear-gradient(180deg,transparent,#111b31)]" />
 
       <div className="relative mx-auto flex min-h-screen max-w-7xl items-center px-6 py-12 sm:px-10 lg:px-14">
         <div className="grid w-full gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(21rem,0.9fr)] lg:items-center xl:gap-14">
@@ -130,7 +130,7 @@ export function IntroScreen({ onComplete }: IntroScreenProps) {
             <div className="absolute -left-8 top-10 hidden h-32 w-32 rounded-full bg-emerald-500/10 blur-3xl lg:block" />
             <div className="absolute right-2 top-2 hidden h-28 w-28 rounded-full bg-cyan-400/10 blur-3xl lg:block" />
 
-            <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-slate-950/72 p-6 shadow-[0_28px_80px_-44px_rgba(0,0,0,0.65)] backdrop-blur-xl sm:p-7">
+            <div className="relative overflow-hidden rounded-[32px] border border-white/12 bg-slate-900/74 p-6 shadow-[0_28px_80px_-44px_rgba(0,0,0,0.52)] backdrop-blur-xl sm:p-7">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">

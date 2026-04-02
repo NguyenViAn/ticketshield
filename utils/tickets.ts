@@ -1,4 +1,5 @@
 export type TicketTierId = "VIP" | "Premium" | "Standard" | "Economy";
+export const MAX_BOOKING_SEATS = 4;
 
 export interface TicketTierDefinition {
   id: TicketTierId;
@@ -88,6 +89,29 @@ export function getSeatPrice(basePrice: number, seatId: string | null | undefine
   }
 
   return basePrice * tier.priceMultiplier;
+}
+
+export function normalizeSeatIds(seatIds: string[]) {
+  return seatIds.map((seatId) => seatId.trim()).filter(Boolean);
+}
+
+export function areSeatIdsUnique(seatIds: string[]) {
+  return new Set(seatIds).size === seatIds.length;
+}
+
+export function areConcreteSeatIds(seatIds: string[]) {
+  return seatIds.every((seatId) => isConcreteSeatId(seatId));
+}
+
+export function getSeatsTotalPrice(basePrice: number, seatIds: string[]) {
+  return seatIds.reduce((sum, seatId) => sum + (getSeatPrice(basePrice, seatId) ?? 0), 0);
+}
+
+export function getSeatSelectionSummary(seatIds: string[]) {
+  return seatIds
+    .slice()
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }))
+    .join(", ");
 }
 
 export function findFirstAvailableSeat(tierId: TicketTierId, takenSeats: string[]) {

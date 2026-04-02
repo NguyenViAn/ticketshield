@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { AlertTriangle, ShieldAlert, ShieldCheck, ShieldX } from "lucide-react";
 import { AdminMetricCard, AdminPanel, AdminPanelHeader, StatusPill } from "@/components/admin/admin-primitives";
-import { useAdminMatches, useAdminTickets, useBlockedUsers } from "@/hooks/use-admin";
+import { useAdminBookingEvents, useAdminMatches, useBlockedUsers } from "@/hooks/use-admin";
 import { buildSecuritySessions, summarizeSecurity } from "@/lib/admin-security";
 
 type FilterValue = "all" | "allow" | "warn" | "block";
@@ -28,13 +28,13 @@ export default function AISecurityPage() {
   const locale = useLocale();
   const t = useTranslations("AdminAISecurity");
   const [filter, setFilter] = useState<FilterValue>("all");
-  const { data: tickets, isLoading: ticketsLoading } = useAdminTickets();
+  const { data: bookingEvents, isLoading: eventsLoading } = useAdminBookingEvents();
   const { data: matches } = useAdminMatches();
   const { data: blockedUsers } = useBlockedUsers();
 
   const sessions = useMemo(
-    () => buildSecuritySessions(tickets, matches, blockedUsers),
-    [tickets, matches, blockedUsers]
+    () => buildSecuritySessions(bookingEvents, matches, blockedUsers),
+    [bookingEvents, matches, blockedUsers]
   );
   const summary = useMemo(() => summarizeSecurity(sessions), [sessions]);
   const filteredSessions = sessions.filter((session) => filter === "all" || session.decision === filter);
@@ -85,7 +85,7 @@ export default function AISecurityPage() {
               </tr>
             </thead>
             <tbody>
-              {ticketsLoading ? (
+              {eventsLoading ? (
                 Array.from({ length: 6 }).map((_, index) => (
                   <tr key={index} className="border-b border-white/10">
                     <td className="px-5 py-4 sm:px-6" colSpan={7}>
