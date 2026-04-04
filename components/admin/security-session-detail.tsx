@@ -36,9 +36,9 @@ function DetailMetric({
   value: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
+    <div className="rounded-[24px] border border-white/6 bg-[linear-gradient(180deg,rgba(24,30,39,0.98),rgba(20,25,34,0.98))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
       <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</div>
-      <div className="mt-3 text-lg font-semibold text-slate-950">{value}</div>
+      <div className="mt-3 text-lg font-semibold leading-7 text-white">{value}</div>
     </div>
   );
 }
@@ -57,7 +57,7 @@ export function SecuritySessionDetail({
       <div className="space-y-6">
         {Array.from({ length: 3 }).map((_, index) => (
           <AdminPanel key={index}>
-            <div className="h-64 animate-pulse bg-slate-50" />
+            <div className="admin-skeleton h-64 rounded-[28px]" />
           </AdminPanel>
         ))}
       </div>
@@ -67,12 +67,12 @@ export function SecuritySessionDetail({
   if (!session) {
     return (
       <AdminPanel className="p-8 sm:p-10">
-        <div className="flex min-h-[480px] flex-col items-center justify-center text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-[24px] border border-slate-200 bg-slate-50 text-slate-500">
+        <div className="admin-empty-state flex min-h-[480px] flex-col items-center justify-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-[24px] border border-cyan-500/14 bg-cyan-500/[0.08] text-cyan-300">
             <ShieldAlert className="h-7 w-7" />
           </div>
-          <h2 className="mt-6 text-2xl font-black tracking-tight text-slate-950">No session selected</h2>
-          <p className="mt-3 max-w-md text-sm leading-7 text-slate-500">
+          <h2 className="mt-6 text-2xl font-black tracking-tight text-white">No session selected</h2>
+          <p className="mt-3 max-w-md text-sm leading-7 text-slate-400">
             Pick a session from the monitor list to inspect its risk summary, timeline, and activity metrics.
           </p>
         </div>
@@ -93,22 +93,24 @@ export function SecuritySessionDetail({
             </div>
           }
         />
-        <div className="grid gap-4 p-5 sm:p-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-          <div className="rounded-[28px] border border-slate-200 bg-slate-50/80 p-5">
+        <div className="grid gap-4 p-5 sm:p-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+          <div className="rounded-[28px] border border-cyan-500/12 bg-[linear-gradient(180deg,rgba(17,30,38,0.98),rgba(18,25,34,0.98))] p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                   {session.sessionId}
                 </div>
-                <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950">{session.reason}</h2>
-                <div className="mt-3 text-sm text-slate-700">{session.match}</div>
+                <div className="mt-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300">Current assessment</div>
+                <h2 className="mt-3 text-3xl font-black tracking-tight text-white">{session.reason}</h2>
+                <div className="mt-4 text-sm text-slate-300">{session.match}</div>
                 <div className="mt-1 text-sm text-slate-500">
-                  {session.userId ? `User ${session.user}` : session.user} - Last activity {formatDate(session.timestamp, locale)}
+                  {session.userId ? `User ${session.user}` : session.user} | Last activity {formatDate(session.timestamp, locale)}
                 </div>
               </div>
-              <div className="rounded-[24px] border border-slate-200 bg-white px-4 py-3 text-right">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Risk score</div>
-                <div className="mt-2 text-3xl font-black text-slate-950">{session.score}</div>
+              <div className="rounded-[24px] border border-cyan-500/14 bg-cyan-500/[0.06] px-4 py-3 text-right shadow-[0_12px_30px_-26px_rgba(34,211,238,0.28)]">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-300">Risk score</div>
+                <div className="mt-2 text-4xl font-black leading-none text-white">{session.score}</div>
+                <div className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-500">{session.scoreLabel}</div>
               </div>
             </div>
           </div>

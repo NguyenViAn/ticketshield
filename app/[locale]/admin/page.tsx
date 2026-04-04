@@ -47,8 +47,8 @@ function OverviewStat({
   return (
     <div className="admin-surface-muted p-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-3 text-2xl font-black tracking-tight text-slate-950">{value}</p>
-      <p className="mt-2 text-sm text-slate-500">{hint}</p>
+      <p className="mt-3 text-2xl font-black tracking-tight text-white">{value}</p>
+      <p className="mt-2 text-sm text-slate-400">{hint}</p>
     </div>
   );
 }
@@ -158,18 +158,18 @@ export default function AdminDashboard() {
               />
             </div>
 
-            <div className="rounded-[28px] border border-cyan-100 bg-cyan-50/80 p-5">
+            <div className="rounded-[28px] border border-cyan-500/14 bg-[linear-gradient(180deg,rgba(15,28,36,0.96),rgba(16,24,32,0.98))] p-5 shadow-[0_20px_40px_-32px_rgba(34,211,238,0.16)]">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-700">Investigation focus</p>
-                  <h3 className="mt-3 text-2xl font-black tracking-tight text-slate-950">Suspicious session review takes priority</h3>
-                  <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300">Investigation focus</p>
+                  <h3 className="mt-3 text-2xl font-black tracking-tight text-white">Suspicious session review takes priority</h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-400">
                     Start with warning and blocked sessions, then inspect event timelines and retry behaviour before moving to business summaries.
                   </p>
                 </div>
-                <div className="rounded-2xl border border-cyan-200 bg-white px-4 py-3 text-right">
+                <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-right">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Live alerts</p>
-                  <p className="mt-2 text-3xl font-black text-slate-950">{suspiciousSessions.length}</p>
+                  <p className="mt-2 text-3xl font-black text-white">{suspiciousSessions.length}</p>
                 </div>
               </div>
             </div>
@@ -228,21 +228,21 @@ export default function AdminDashboard() {
               <tbody>
                 {bookingEventsLoading || matchesLoading ? (
                   Array.from({ length: 5 }).map((_, index) => (
-                    <tr key={index} className="border-b border-slate-100">
+                    <tr key={index} className="border-b border-white/6">
                       <td className="px-5 py-4 sm:px-6" colSpan={5}>
-                        <div className="h-12 animate-pulse rounded-2xl bg-slate-100" />
+                        <div className="admin-skeleton h-12" />
                       </td>
                     </tr>
                   ))
                 ) : topSuspiciousSessions.length ? (
                   topSuspiciousSessions.map((session) => (
                     <tr key={session.id} className="admin-table-row">
-                      <td className="px-5 py-4 font-mono text-xs text-slate-950 sm:px-6">{session.sessionId}</td>
+                      <td className="px-5 py-4 font-mono text-xs text-slate-200 sm:px-6">{session.sessionId}</td>
                       <td className="px-5 py-4 sm:px-6">{session.user}</td>
                       <td className="px-5 py-4 sm:px-6">
                         <div className="flex items-center gap-2">
                           <AlertTriangle className="h-4 w-4 text-amber-500" />
-                          <span className="font-semibold text-slate-950">{session.score}</span>
+                          <span className="font-semibold text-white">{session.score}</span>
                         </div>
                       </td>
                       <td className="px-5 py-4 sm:px-6">
@@ -272,24 +272,24 @@ export default function AdminDashboard() {
           <div className="space-y-3 p-5 sm:p-6">
             {ticketsLoading ? (
               Array.from({ length: 4 }).map((_, index) => (
-                <div key={index} className="h-20 animate-pulse rounded-[22px] border border-slate-200 bg-slate-50" />
+                <div key={index} className="admin-skeleton h-20 rounded-[22px]" />
               ))
             ) : recentOrders.length ? (
               recentOrders.map((ticket) => (
                 <div key={ticket.id} className="admin-surface-muted p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
-                        <Ticket className="h-4 w-4 text-cyan-600" />
+                        <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                          <Ticket className="h-4 w-4 text-cyan-300" />
                         <span>
                           {ticket.matches?.home_team} vs {ticket.matches?.away_team}
                         </span>
                       </div>
-                      <div className="mt-2 text-sm text-slate-600">Seat {ticket.seat}</div>
+                      <div className="mt-2 text-sm text-slate-300">Seat {ticket.seat}</div>
                       <div className="mt-1 text-xs text-slate-500">{formatDate(ticket.created_at)}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-semibold text-slate-950">{formatCurrency(ticket.price_paid)}</div>
+                      <div className="text-sm font-semibold text-white">{formatCurrency(ticket.price_paid)}</div>
                       <div className="mt-2">
                         <StatusPill tone={ticket.status === "Cancelled" ? "red" : ticket.status === "Suspended" ? "amber" : "emerald"}>
                           {ticket.status}
@@ -300,14 +300,14 @@ export default function AdminDashboard() {
                 </div>
               ))
             ) : (
-              <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
+              <div className="rounded-[24px] border border-white/6 bg-white/[0.03] px-5 py-10 text-center text-sm text-slate-400">
                 {t("empty_orders")}
               </div>
             )}
 
-            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-              <div className="flex items-center gap-2 text-slate-600">
-                <DollarSign className="h-4 w-4 text-emerald-600" />
+            <div className="rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
+              <div className="flex items-center gap-2 text-slate-300">
+                <DollarSign className="h-4 w-4 text-cyan-300" />
                 <span className="text-sm font-medium">Revenue context remains available for reporting and screenshots.</span>
               </div>
             </div>

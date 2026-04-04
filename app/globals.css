@@ -187,27 +187,43 @@
   }
 
   .admin-surface {
-    @apply rounded-[28px] border border-slate-200/90 bg-white text-slate-800 shadow-[0_18px_48px_-28px_rgba(15,23,42,0.12)];
+    @apply rounded-[28px] border border-white/6 bg-[linear-gradient(180deg,rgba(28,33,43,0.98),rgba(23,28,37,0.98))] text-slate-100 shadow-[0_18px_42px_-28px_rgba(0,0,0,0.44)];
   }
 
   .admin-surface-muted {
-    @apply rounded-3xl border border-slate-200 bg-slate-50/90 text-slate-700;
+    @apply rounded-3xl border border-white/6 bg-[linear-gradient(180deg,rgba(24,30,39,0.98),rgba(20,25,34,0.98))] text-slate-300;
   }
 
   .admin-table-head {
-    @apply border-b border-slate-200 bg-slate-50/75 text-xs uppercase tracking-[0.18em] text-slate-500;
+    @apply border-b border-white/6 bg-[linear-gradient(180deg,rgba(24,29,38,0.98),rgba(21,26,35,0.98))] text-xs uppercase tracking-[0.18em] text-slate-500;
   }
 
   .admin-table-row {
-    @apply border-b border-slate-100 text-slate-700 transition-colors hover:bg-cyan-50/70;
+    @apply border-b border-white/6 text-slate-300 transition-[background-color,border-color,transform] duration-150 hover:bg-cyan-500/[0.06];
   }
 
   .admin-input-surface {
-    @apply rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 outline-none transition-colors focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100;
+    @apply rounded-xl border border-white/8 bg-[#191e27] text-slate-100 placeholder:text-slate-500 outline-none transition-colors focus:border-cyan-400/40 focus:ring-4 focus:ring-cyan-500/10;
   }
 
   .admin-button-muted {
-    @apply border border-slate-200 bg-white text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900;
+    @apply border border-white/8 bg-[#20252f] text-slate-200 transition-colors hover:border-cyan-400/24 hover:bg-[#262d38] hover:text-white;
+  }
+
+  .admin-button-danger {
+    @apply border border-rose-500/18 bg-rose-500/10 text-rose-300 transition-colors hover:border-rose-400/26 hover:bg-rose-500/14 hover:text-rose-200;
+  }
+
+  .admin-skeleton {
+    @apply animate-pulse rounded-2xl border border-white/6 bg-white/[0.05];
+  }
+
+  .admin-empty-state {
+    @apply rounded-[28px] border border-white/6 bg-[linear-gradient(180deg,rgba(24,30,39,0.98),rgba(20,25,34,0.98))] text-center;
+  }
+
+  .admin-focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/35 focus-visible:ring-offset-0;
   }
 
   .theme-inset-surface {

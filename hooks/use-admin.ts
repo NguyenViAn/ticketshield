@@ -44,44 +44,51 @@ function useAdminData<T>(fetcher: (supabase: ReturnType<typeof createClient>) =>
 
 const defaultStats: AdminStats = { matchCount: 0, ticketCount: 0, totalRevenue: 0, blockedUserCount: 0 };
 const defaultSecuritySummary = { monitored: 0, warned: 0, blocked: 0, avgRisk: 0 };
+const fetchAdminStatsData = (supabase: ReturnType<typeof createClient>) => fetchAdminStats(supabase);
+const fetchAdminMatchesData = (supabase: ReturnType<typeof createClient>) => fetchAllMatches(supabase);
+const fetchAdminTicketsData = (supabase: ReturnType<typeof createClient>) => fetchAllTickets(supabase);
+const fetchAdminBookingEventsData = (supabase: ReturnType<typeof createClient>) => fetchAllBookingEvents(supabase);
+const fetchAdminPromotionsData = (supabase: ReturnType<typeof createClient>) => fetchAllPromotions(supabase);
+const fetchBlockedUsersData = (supabase: ReturnType<typeof createClient>) => fetchBlockedUsers(supabase);
+async function fetchAdminSecuritySessionsData(supabase: ReturnType<typeof createClient>) {
+  const { blockedUsers, bookingEvents, matches } = await fetchAdminSecurityContext(supabase);
+  const sessions = buildSecuritySessions(bookingEvents, matches, blockedUsers);
+
+  return {
+    sessions,
+    summary: summarizeSecurity(sessions),
+  };
+}
 
 export function useAdminStats() {
-  return useAdminData<AdminStats>((supabase) => fetchAdminStats(supabase), defaultStats);
+  return useAdminData<AdminStats>(fetchAdminStatsData, defaultStats);
 }
 
 export function useAdminMatches() {
-  return useAdminData<Match[]>((supabase) => fetchAllMatches(supabase), []);
+  return useAdminData<Match[]>(fetchAdminMatchesData, []);
 }
 
 export function useAdminTickets() {
-  return useAdminData<AdminTicket[]>((supabase) => fetchAllTickets(supabase), []);
+  return useAdminData<AdminTicket[]>(fetchAdminTicketsData, []);
 }
 
 export function useAdminBookingEvents() {
-  return useAdminData<BookingEvent[]>((supabase) => fetchAllBookingEvents(supabase), []);
+  return useAdminData<BookingEvent[]>(fetchAdminBookingEventsData, []);
 }
 
 export function useAdminPromotions() {
-  return useAdminData<AdminPromotion[]>((supabase) => fetchAllPromotions(supabase), []);
+  return useAdminData<AdminPromotion[]>(fetchAdminPromotionsData, []);
 }
 
 export function useBlockedUsers() {
-  return useAdminData<BlockedUser[]>((supabase) => fetchBlockedUsers(supabase), []);
+  return useAdminData<BlockedUser[]>(fetchBlockedUsersData, []);
 }
 
 export function useAdminSecuritySessions() {
   return useAdminData<{
     sessions: SecuritySession[];
     summary: typeof defaultSecuritySummary;
-  }>(async (supabase) => {
-    const { blockedUsers, bookingEvents, matches } = await fetchAdminSecurityContext(supabase);
-    const sessions = buildSecuritySessions(bookingEvents, matches, blockedUsers);
-
-    return {
-      sessions,
-      summary: summarizeSecurity(sessions),
-    };
-  }, {
+  }>(fetchAdminSecuritySessionsData, {
     sessions: [],
     summary: defaultSecuritySummary,
   });

@@ -35,8 +35,8 @@ export default function AdminPromotionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-950 sm:text-3xl">{t("title")}</h1>
-        <p className="mt-1 text-sm text-slate-500">{t("subtitle")}</p>
+        <h1 className="text-2xl font-bold text-white sm:text-3xl">{t("title")}</h1>
+        <p className="mt-1 text-sm text-slate-400">{t("subtitle")}</p>
       </div>
 
       <motion.div
@@ -59,9 +59,9 @@ export default function AdminPromotionsPage() {
             <tbody>
               {isLoading ? (
                 [...Array(3)].map((_, i) => (
-                  <tr key={i} className="border-b border-slate-100">
+                  <tr key={i} className="border-b border-white/6">
                     <td colSpan={5} className="px-4 py-4">
-                      <div className="h-5 animate-pulse rounded bg-slate-100" />
+                      <div className="admin-skeleton h-5 rounded" />
                     </td>
                   </tr>
                 ))
@@ -70,9 +70,9 @@ export default function AdminPromotionsPage() {
                   <tr key={promo.id} className="admin-table-row">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Percent className="h-4 w-4 shrink-0 text-cyan-600" />
+                        <Percent className="h-4 w-4 shrink-0 text-cyan-300" />
                         <div>
-                          <div className="font-medium text-slate-950">
+                          <div className="font-medium text-white">
                             {locale.startsWith("vi") ? promo.title_vi : promo.title_en}
                           </div>
                           <div className="mt-0.5 text-xs text-slate-500 line-clamp-1">
@@ -82,7 +82,7 @@ export default function AdminPromotionsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className="rounded-full bg-cyan-50 px-2.5 py-0.5 text-xs font-bold text-cyan-700">
+                      <span className="rounded-full border border-cyan-500/18 bg-cyan-500/10 px-2.5 py-0.5 text-xs font-bold text-cyan-300">
                         {promo.discount}
                       </span>
                     </td>
@@ -90,8 +90,8 @@ export default function AdminPromotionsPage() {
                       <span
                         className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                           promo.active
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-slate-100 text-slate-600"
+                            ? "border border-emerald-500/18 bg-emerald-500/10 text-emerald-300"
+                            : "border border-white/8 bg-white/[0.04] text-slate-400"
                         }`}
                       >
                         {promo.active ? "ON" : "OFF"}
@@ -104,10 +104,10 @@ export default function AdminPromotionsPage() {
                       <div className="flex items-center justify-end">
                         <button
                           onClick={() => handleToggle(promo.id, promo.active)}
-                          className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                          className={`admin-focus-ring flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                             promo.active
-                              ? "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                              : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                              ? "border border-emerald-500/18 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/14"
+                              : "border border-white/8 bg-white/[0.04] text-slate-300 hover:bg-white/[0.06] hover:text-white"
                           }`}
                         >
                           {promo.active ? (
@@ -123,7 +123,7 @@ export default function AdminPromotionsPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
+                  <td colSpan={5} className="px-4 py-12 text-center text-slate-400">
                     {t("no_promos")}
                   </td>
                 </tr>

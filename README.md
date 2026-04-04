@@ -16,6 +16,15 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Local Auth Testing
+
+Supabase auth state is shared per browser profile and host origin. For local testing with two accounts at the same time:
+
+- use `localhost` in one session and `127.0.0.1` in another
+- or use separate browser profiles / one normal window plus one incognito window
+
+Running two different accounts in the same browser profile on the same `localhost` origin is not a supported test setup.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

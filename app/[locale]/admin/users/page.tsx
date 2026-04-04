@@ -60,12 +60,12 @@ export default function AdminUsersPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-950 sm:text-3xl">{t("title")}</h1>
-          <p className="mt-1 text-sm text-slate-500">{t("subtitle")}</p>
+          <h1 className="text-2xl font-bold text-white sm:text-3xl">{t("title")}</h1>
+          <p className="mt-1 text-sm text-slate-400">{t("subtitle")}</p>
         </div>
         <button
           onClick={() => setShowBlockDialog(true)}
-          className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100"
+          className="admin-button-danger admin-focus-ring inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
         >
           <UserX className="h-4 w-4" />
           {t("block")}
@@ -80,27 +80,27 @@ export default function AdminUsersPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowBlockDialog(false)}
-              className="fixed inset-0 z-50 bg-slate-900/18 backdrop-blur-sm"
+              className="fixed inset-0 z-50 bg-black/46 backdrop-blur-sm"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_26px_70px_-38px_rgba(15,23,42,0.28)]"
+              className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(28,33,43,0.99),rgba(22,27,36,0.99))] p-6 shadow-[0_26px_70px_-38px_rgba(0,0,0,0.52)]"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50">
-                    <AlertTriangle className="h-5 w-5 text-red-700" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-rose-500/18 bg-rose-500/10">
+                    <AlertTriangle className="h-5 w-5 text-rose-300" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-950">{t("block_dialog_title")}</h3>
-                    <p className="text-xs text-slate-500">{t("block_dialog_desc")}</p>
+                    <h3 className="text-lg font-semibold text-white">{t("block_dialog_title")}</h3>
+                    <p className="text-xs text-slate-400">{t("block_dialog_desc")}</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowBlockDialog(false)}
-                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                  className="rounded-lg p-2 text-slate-400 hover:bg-white/[0.05] hover:text-white"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -112,14 +112,14 @@ export default function AdminUsersPage() {
                   value={userId}
                   onChange={(e) => setUserId(e.target.value)}
                   placeholder={t("user_id_placeholder")}
-                  className="admin-input-surface w-full px-4 py-2.5 text-sm"
+                    className="admin-input-surface admin-focus-ring w-full px-4 py-2.5 text-sm"
                 />
                 <input
                   type="text"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder={t("reason_placeholder")}
-                  className="admin-input-surface w-full px-4 py-2.5 text-sm"
+                    className="admin-input-surface admin-focus-ring w-full px-4 py-2.5 text-sm"
                 />
                 <div className="flex items-center gap-3 pt-2">
                   <button
@@ -131,7 +131,7 @@ export default function AdminUsersPage() {
                   <button
                     onClick={handleBlock}
                     disabled={isSubmitting || !userId.trim() || !reason.trim()}
-                    className="flex-1 rounded-xl border border-red-200 bg-red-50 py-2.5 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="admin-button-danger admin-focus-ring flex-1 rounded-xl py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isSubmitting ? "..." : t("confirm_block")}
                   </button>
@@ -162,9 +162,9 @@ export default function AdminUsersPage() {
             <tbody>
               {isLoading ? (
                 [...Array(3)].map((_, i) => (
-                  <tr key={i} className="border-b border-slate-100">
+                  <tr key={i} className="border-b border-white/6">
                     <td colSpan={5} className="px-4 py-4">
-                      <div className="h-5 animate-pulse rounded bg-slate-100" />
+                      <div className="admin-skeleton h-5 rounded" />
                     </td>
                   </tr>
                 ))
@@ -173,16 +173,16 @@ export default function AdminUsersPage() {
                   <tr key={bu.id} className="admin-table-row">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <ShieldBan className="h-4 w-4 shrink-0 text-red-700" />
-                        <span className="font-mono text-xs text-slate-700">{bu.user_id.slice(0, 12)}...</span>
+                        <ShieldBan className="h-4 w-4 shrink-0 text-rose-300" />
+                        <span className="font-mono text-xs text-slate-300">{bu.user_id.slice(0, 12)}...</span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-700">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/18 bg-rose-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-300">
                         {t("status_blocked")}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{bu.reason}</td>
+                    <td className="px-4 py-3 text-slate-300">{bu.reason}</td>
                     <td className="hidden px-4 py-3 text-slate-500 md:table-cell">
                       {formatDate(bu.blocked_at, locale)}
                     </td>
@@ -190,7 +190,7 @@ export default function AdminUsersPage() {
                       <div className="flex items-center justify-end">
                         <button
                           onClick={() => handleUnblock(bu.user_id)}
-                          className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+                          className="flex items-center gap-1 rounded-lg border border-emerald-500/18 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/14"
                         >
                           <UserCheck className="h-3.5 w-3.5" />
                           {t("unblock")}
@@ -204,7 +204,7 @@ export default function AdminUsersPage() {
                   <td colSpan={5} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <ShieldCheck className="h-10 w-10 text-emerald-300" />
-                      <span className="text-sm text-slate-500">{t("no_blocked")}</span>
+                      <span className="text-sm text-slate-400">{t("no_blocked")}</span>
                     </div>
                   </td>
                 </tr>

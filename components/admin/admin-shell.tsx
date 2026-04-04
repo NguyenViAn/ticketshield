@@ -81,13 +81,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   const sidebar = (
     <div className="flex h-full flex-col">
-      <div className="border-b border-slate-200 px-5 py-5">
+      <div className="border-b border-white/6 px-5 py-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-500/16 bg-cyan-500/10 text-cyan-300">
             <Shield className="h-5 w-5" />
           </div>
           <div>
-            <div className="text-sm font-bold uppercase tracking-[0.24em] text-slate-900">{t("sidebar_title")}</div>
+            <div className="text-sm font-bold uppercase tracking-[0.24em] text-cyan-300">{t("sidebar_title")}</div>
             <div className="mt-1 text-xs text-slate-500">{t("sidebar_subtitle")}</div>
           </div>
         </div>
@@ -108,13 +108,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 rounded-2xl border px-3 py-3 transition-colors ${
                   active
-                    ? "border-cyan-200 bg-cyan-50 text-slate-900 shadow-[0_10px_24px_-18px_rgba(14,165,233,0.45)]"
-                    : "border-transparent text-slate-500 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+                    ? "border-cyan-500/16 bg-[linear-gradient(90deg,rgba(34,211,238,0.12),rgba(8,12,18,0.08))] text-white shadow-[inset_3px_0_0_rgba(34,211,238,0.9)]"
+                    : "border-transparent text-slate-500 hover:border-white/6 hover:bg-white/[0.03] hover:text-slate-200"
                 }`}
               >
                 <span
                   className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
-                    active ? "bg-cyan-100 text-cyan-700" : "bg-slate-100 text-slate-500"
+                    active ? "bg-cyan-500/12 text-cyan-300" : "bg-white/[0.04] text-slate-500"
                   }`}
                 >
                   <item.icon className="h-4 w-4" />
@@ -129,35 +129,35 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
-      <div className="border-t border-slate-200 p-4">
+      <div className="border-t border-white/6 p-4">
         <AdminPanel className="p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">{t("ai_status_label")}</p>
-              <p className="mt-2 text-sm font-semibold text-slate-900">{t("ai_status_value")}</p>
+              <p className="mt-2 text-sm font-semibold text-white">{t("ai_status_value")}</p>
             </div>
             <StatusPill tone="emerald">{t("ai_status_badge")}</StatusPill>
           </div>
-          <p className="mt-3 text-sm text-slate-500">{t("ai_status_desc")}</p>
+          <p className="mt-3 text-sm text-slate-400">{t("ai_status_desc")}</p>
         </AdminPanel>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#f6f8fb] text-slate-700">
-      <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.08),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.06),transparent_24%)]" />
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[300px] border-r border-slate-200 bg-white/92 backdrop-blur-xl xl:block">
+    <div className="min-h-screen bg-[#0f131a] text-slate-300">
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.05),transparent_22%),linear-gradient(180deg,#0f131a_0%,#10151d_100%)]" />
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[300px] border-r border-white/6 bg-[#0c1118] backdrop-blur-xl xl:block">
         {sidebar}
       </aside>
 
       {mobileOpen ? (
         <>
-          <button className="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-[2px] xl:hidden" onClick={() => setMobileOpen(false)} />
-          <aside className="fixed inset-y-0 left-0 z-50 w-[300px] border-r border-slate-200 bg-white/96 xl:hidden">
+          <button className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] xl:hidden" onClick={() => setMobileOpen(false)} />
+          <aside className="fixed inset-y-0 left-0 z-50 w-[300px] border-r border-white/6 bg-[#0c1118] xl:hidden">
             <div className="flex h-16 items-center justify-end px-4">
               <button
-                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600"
+                className="admin-focus-ring flex h-10 w-10 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-300"
                 onClick={() => setMobileOpen(false)}
               >
                 <X className="h-4 w-4" />
@@ -169,25 +169,25 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       ) : null}
 
       <div className="relative xl:ml-[300px]">
-        <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-[#f6f8fb]/90 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 border-b border-white/6 bg-[#121721]/92 backdrop-blur-xl">
           <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 xl:px-8">
             <div className="flex items-center gap-3 xl:hidden">
               <button
-                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600"
+                className="admin-focus-ring flex h-11 w-11 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-300"
                 onClick={() => setMobileOpen(true)}
               >
                 <Menu className="h-5 w-5" />
               </button>
               <div>
-                <div className="text-sm font-bold text-slate-900">{t("mobile_title")}</div>
+                <div className="text-sm font-bold text-white">{t("mobile_title")}</div>
                 <div className="text-xs text-slate-500">{t("mobile_subtitle")}</div>
               </div>
             </div>
 
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h1 className="text-2xl font-black tracking-tight text-slate-950">{t(`page.${pageKey}.title`)}</h1>
-                <p className="mt-1 text-sm text-slate-500">{t(`page.${pageKey}.description`)}</p>
+                <h1 className="text-2xl font-black tracking-tight text-white">{t(`page.${pageKey}.title`)}</h1>
+                <p className="mt-1 text-sm text-slate-400">{t(`page.${pageKey}.description`)}</p>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -196,23 +196,23 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   <input
                     type="text"
                     placeholder={t("search_placeholder")}
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100"
+                    className="admin-focus-ring h-11 w-full rounded-2xl border border-white/8 bg-[#1b212b] pl-11 pr-4 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-500 focus:border-cyan-400/40 focus:ring-4 focus:ring-cyan-500/10"
                   />
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-cyan-200 hover:text-cyan-700">
+                  <button className="admin-focus-ring relative flex h-11 w-11 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-300 transition-colors hover:border-cyan-400/24 hover:text-white">
                     <Bell className="h-4 w-4" />
-                    <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-amber-400" />
+                    <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-amber-500/80" />
                   </button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="flex h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-left transition-colors hover:border-slate-300">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-700">
+                      <button className="admin-focus-ring flex h-11 items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.04] px-3 text-left transition-colors hover:border-cyan-400/24">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/12 text-sm font-semibold text-cyan-300">
                           {user?.name?.slice(0, 1).toUpperCase() ?? "A"}
                         </span>
                         <span className="hidden sm:block">
-                          <span className="block max-w-[120px] truncate text-sm font-semibold text-slate-900">
+                          <span className="block max-w-[120px] truncate text-sm font-semibold text-white">
                             {user?.name ?? t("default_user_name")}
                           </span>
                           <span className="block max-w-[120px] truncate text-xs text-slate-500">
@@ -222,16 +222,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                         <ChevronDown className="h-4 w-4 text-slate-400" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="mt-2 w-64 rounded-3xl border border-slate-200 bg-white p-2 text-slate-700 shadow-[0_18px_42px_-30px_rgba(15,23,42,0.18)]">
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                        <div className="text-sm font-semibold text-slate-900">{user?.name ?? t("default_user_name")}</div>
-                        <div className="mt-1 text-xs text-slate-500">{user?.email ?? t("default_user_email")}</div>
+                    <DropdownMenuContent align="end" className="mt-2 w-64 rounded-3xl border border-white/8 bg-[linear-gradient(180deg,rgba(28,33,43,0.99),rgba(22,27,36,0.99))] p-2 text-slate-200 shadow-[0_22px_44px_-30px_rgba(0,0,0,0.5)]">
+                      <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-3">
+                        <div className="text-sm font-semibold text-white">{user?.name ?? t("default_user_name")}</div>
+                        <div className="mt-1 text-xs text-slate-400">{user?.email ?? t("default_user_email")}</div>
                       </div>
-                      <DropdownMenuItem asChild className="mt-2 rounded-2xl px-3 py-3 font-medium text-slate-700 focus:bg-slate-50 focus:text-slate-900">
+                      <DropdownMenuItem asChild className="mt-2 rounded-2xl px-3 py-3 font-medium text-slate-200 focus:bg-white/[0.05] focus:text-white">
                         <Link href="/admin/settings">{t("workspace_settings")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        className="rounded-2xl px-3 py-3 font-medium text-red-600 focus:bg-red-50 focus:text-red-700"
+                        className="rounded-2xl px-3 py-3 font-medium text-rose-300 focus:bg-rose-500/10 focus:text-rose-200"
                         onClick={() => logout()}
                       >
                         <LogOut className="mr-2 h-4 w-4" />

@@ -18,29 +18,18 @@ import {
 
 import { Logo } from "@/components/logo";
 import { NeonButton } from "@/components/ui/neon-button";
+import { resolveRequestedRedirect, resolveRoleAwareRedirect, resolveRoutingLocale } from "@/utils/auth-routing";
 import { createClient } from "@/utils/supabase/client";
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-function getDefaultRedirect(role: unknown, locale: string) {
-  return role === "admin" ? `/${locale}/admin` : `/${locale}`;
-}
-
-function resolveRequestedRedirect(rawRedirect: string | null) {
-  if (!rawRedirect || !rawRedirect.startsWith("/")) {
-    return null;
-  }
-
-  return rawRedirect === "/" ? null : rawRedirect;
-}
-
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
-  const locale = useLocale();
+  const locale = resolveRoutingLocale(useLocale());
   const t = useTranslations("Login");
 
   const [isLoginMode, setIsLoginMode] = useState(true);
@@ -57,7 +46,7 @@ function LoginContent() {
   const requestedRedirect = resolveRequestedRedirect(searchParams.get("redirect"));
   const profileAfterReset = "/profile";
 
-  const resolvePostAuthRedirect = (role: unknown) => requestedRedirect ?? getDefaultRedirect(role, locale);
+  const resolvePostAuthRedirect = (role: unknown) => resolveRoleAwareRedirect(requestedRedirect, locale, role);
 
   const handleEmailAuth = async (event: React.FormEvent) => {
     event.preventDefault();

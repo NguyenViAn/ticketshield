@@ -39,7 +39,7 @@ export function SecuritySessionList({
     return (
       <div className="space-y-3 p-4 sm:p-5">
         {Array.from({ length: 6 }).map((_, index) => (
-          <div key={index} className="h-28 animate-pulse rounded-[26px] border border-slate-200 bg-slate-50" />
+          <div key={index} className="admin-skeleton h-32 rounded-[26px]" />
         ))}
       </div>
     );
@@ -47,8 +47,14 @@ export function SecuritySessionList({
 
   if (!sessions.length) {
     return (
-      <div className="flex min-h-[420px] items-center justify-center px-6 py-12 text-center text-sm text-slate-500">
-        {emptyLabel}
+      <div className="admin-empty-state flex min-h-[420px] items-center justify-center px-6 py-12">
+        <div>
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[20px] border border-cyan-500/14 bg-cyan-500/8 text-cyan-300">
+            <Clock3 className="h-6 w-6" />
+          </div>
+          <div className="mt-5 text-sm font-semibold uppercase tracking-[0.22em] text-slate-500">No sessions</div>
+          <div className="mt-2 max-w-xs text-sm leading-7 text-slate-400">{emptyLabel}</div>
+        </div>
       </div>
     );
   }
@@ -63,10 +69,10 @@ export function SecuritySessionList({
             key={session.id}
             type="button"
             onClick={() => onSelect(session.id)}
-            className={`w-full rounded-[26px] border p-4 text-left transition-all ${
+            className={`admin-focus-ring w-full rounded-[26px] border p-4 text-left transition-all ${
               selected
-                ? "border-cyan-200 bg-cyan-50 shadow-[0_16px_40px_-30px_rgba(14,165,233,0.5)]"
-                : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                ? "border-cyan-500/18 bg-[linear-gradient(180deg,rgba(18,34,43,0.98),rgba(17,28,36,0.98))] shadow-[0_0_0_1px_rgba(34,211,238,0.18),0_18px_34px_-28px_rgba(0,0,0,0.42)]"
+                : "border-white/6 bg-[#181e27] hover:border-cyan-500/10 hover:bg-[#1c232d]"
             }`}
           >
             <div className="flex items-start justify-between gap-4">
@@ -74,8 +80,8 @@ export function SecuritySessionList({
                 <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                   {session.sessionId}
                 </div>
-                <div className="mt-2 truncate text-sm font-semibold text-slate-950">{session.user}</div>
-                <div className="mt-1 truncate text-xs text-slate-500">{session.match}</div>
+                <div className="mt-2 truncate text-sm font-semibold text-white">{session.user}</div>
+                <div className="mt-1 truncate text-xs text-slate-400">{session.match}</div>
               </div>
 
               <div className="flex shrink-0 flex-col items-end gap-2">
@@ -92,12 +98,12 @@ export function SecuritySessionList({
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                   Short reason
                 </div>
-                <div className="mt-1 text-sm text-slate-700">{session.reason}</div>
+                <div className="mt-1 line-clamp-2 text-sm leading-6 text-slate-300">{session.reason}</div>
               </div>
 
               <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                 <span>{session.scoreLabel}</span>
-                <span className="h-1 w-1 rounded-full bg-slate-300" />
+                <span className="h-1 w-1 rounded-full bg-slate-600" />
                 <span>{session.totalEvents} events</span>
               </div>
             </div>

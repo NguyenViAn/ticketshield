@@ -29,15 +29,15 @@ const FILTER_VALUES = ["All", "Valid", "Used", "Cancelled", "Suspended"];
 function statusColor(status: string) {
   switch (status) {
     case "Valid":
-      return "bg-emerald-50 text-emerald-700";
+      return "border border-emerald-500/18 bg-emerald-500/10 text-emerald-300";
     case "Used":
-      return "bg-cyan-50 text-cyan-700";
+      return "border border-cyan-500/18 bg-cyan-500/10 text-cyan-300";
     case "Cancelled":
-      return "bg-red-50 text-red-700";
+      return "border border-rose-500/18 bg-rose-500/10 text-rose-300";
     case "Suspended":
-      return "bg-amber-50 text-amber-700";
+      return "border border-amber-400/18 bg-amber-400/10 text-amber-300";
     default:
-      return "bg-slate-100 text-slate-600";
+      return "border border-white/8 bg-white/[0.04] text-slate-400";
   }
 }
 
@@ -65,8 +65,8 @@ export default function AdminTicketsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-950 sm:text-3xl">{t("title")}</h1>
-        <p className="mt-1 text-sm text-slate-500">{t("subtitle")}</p>
+        <h1 className="text-2xl font-bold text-white sm:text-3xl">{t("title")}</h1>
+        <p className="mt-1 text-sm text-slate-400">{t("subtitle")}</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -74,10 +74,10 @@ export default function AdminTicketsPage() {
           <button
             key={key}
             onClick={() => setFilter(FILTER_VALUES[index])}
-            className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                    className={`admin-focus-ring rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all ${
               filter === FILTER_VALUES[index]
-                ? "border-cyan-200 bg-cyan-50 text-cyan-700"
-                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                ? "border-cyan-500/18 bg-cyan-500/10 text-cyan-300"
+                : "border-white/8 bg-white/[0.04] text-slate-400 hover:border-white/12 hover:bg-white/[0.06] hover:text-white"
             }`}
           >
             {t(key)}
@@ -107,9 +107,9 @@ export default function AdminTicketsPage() {
             <tbody>
               {isLoading ? (
                 [...Array(5)].map((_, index) => (
-                  <tr key={index} className="border-b border-slate-100">
+                  <tr key={index} className="border-b border-white/6">
                     <td colSpan={7} className="px-4 py-4">
-                      <div className="h-5 animate-pulse rounded bg-slate-100" />
+                      <div className="admin-skeleton h-5 rounded" />
                     </td>
                   </tr>
                 ))
@@ -118,18 +118,18 @@ export default function AdminTicketsPage() {
                   <tr key={ticket.id} className="admin-table-row">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Ticket className="h-4 w-4 shrink-0 text-cyan-600" />
-                        <span className="font-medium text-slate-950">
+                        <Ticket className="h-4 w-4 shrink-0 text-cyan-300" />
+                        <span className="font-medium text-white">
                           {ticket.matches?.home_team} vs {ticket.matches?.away_team}
                         </span>
                       </div>
                       <div className="mt-0.5 pl-6 text-xs text-slate-500">ID: {ticket.id.slice(0, 8)}...</div>
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{ticket.seat}</td>
+                    <td className="px-4 py-3 text-slate-300">{ticket.seat}</td>
                     <td className="hidden px-4 py-3 font-mono text-xs text-slate-500 xl:table-cell">
                       {(ticket.booking_group_id ?? ticket.id).slice(0, 8).toUpperCase()}
                     </td>
-                    <td className="hidden px-4 py-3 text-right font-medium text-emerald-700 md:table-cell">
+                    <td className="hidden px-4 py-3 text-right font-medium text-white md:table-cell">
                       {formatCurrency(ticket.price_paid, locale)} VND
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -147,7 +147,7 @@ export default function AdminTicketsPage() {
                         <select
                           value={ticket.status}
                           onChange={(event) => handleStatusChange(ticket.id, event.target.value)}
-                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none transition-colors focus:border-cyan-300"
+                          className="admin-focus-ring rounded-lg border border-white/8 bg-white/[0.04] px-2 py-1 text-xs text-slate-200 outline-none transition-colors focus:border-cyan-400/30"
                         >
                           {STATUS_OPTIONS.map((status) => (
                             <option key={status} value={status}>
@@ -161,7 +161,7 @@ export default function AdminTicketsPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                  <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
                     {t("no_tickets")}
                   </td>
                 </tr>

@@ -70,7 +70,7 @@ export default function AISecurityPage() {
               <button
                 type="button"
                 onClick={() => void refetch()}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                className="admin-button-muted inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em]"
               >
                 <RefreshCcw className="h-3.5 w-3.5" />
                 Retry
@@ -81,7 +81,7 @@ export default function AISecurityPage() {
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <AdminPanel>
+        <AdminPanel className="overflow-hidden">
           <AdminPanelHeader
             title="Security Session List"
             description="Grouped booking sessions sorted by higher risk first, then newest activity."
@@ -91,10 +91,10 @@ export default function AISecurityPage() {
                   <button
                     key={item}
                     type="button"
-                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] transition-colors ${
+                    className={`admin-focus-ring rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] transition-colors ${
                       filter === item
-                        ? "border-cyan-200 bg-cyan-50 text-cyan-700"
-                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        ? "border-cyan-500/18 bg-cyan-500/10 text-cyan-300"
+                        : "admin-button-muted text-slate-300"
                     }`}
                     onClick={() => setFilter(item)}
                   >

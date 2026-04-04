@@ -68,7 +68,7 @@ export function SecurityEventTimeline({
   locale: string;
 }) {
   if (!events.length) {
-    return <div className="px-5 py-8 text-sm text-slate-500 sm:px-6">No booking events recorded for this session.</div>;
+    return <div className="px-5 py-8 text-sm text-slate-400 sm:px-6">No booking events recorded for this session.</div>;
   }
 
   return (
@@ -78,46 +78,46 @@ export function SecurityEventTimeline({
         const Icon = meta.icon;
 
         return (
-          <div key={event.id} className="relative pl-16">
+          <div key={event.id} className="group relative pl-16">
             {index < events.length - 1 ? (
-              <span className="absolute left-[22px] top-12 h-[calc(100%-1rem)] w-px bg-slate-200" />
+              <span className="absolute left-[22px] top-12 h-[calc(100%-1rem)] w-px bg-gradient-to-b from-cyan-500/20 via-white/6 to-transparent" />
             ) : null}
 
             <div className={`absolute left-0 top-0 flex h-11 w-11 items-center justify-center rounded-2xl border ${
               meta.tone === "emerald"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                ? "border-emerald-500/18 bg-emerald-500/10 text-emerald-300"
                 : meta.tone === "amber"
-                  ? "border-amber-200 bg-amber-50 text-amber-700"
+                  ? "border-amber-400/18 bg-amber-400/10 text-amber-300"
                   : meta.tone === "red"
-                    ? "border-red-200 bg-red-50 text-red-700"
+                    ? "border-rose-500/18 bg-rose-500/10 text-rose-300"
                     : meta.tone === "cyan"
-                      ? "border-cyan-200 bg-cyan-50 text-cyan-700"
-                      : "border-slate-200 bg-slate-50 text-slate-600"
+                      ? "border-cyan-500/18 bg-cyan-500/10 text-cyan-300"
+                      : "border-white/8 bg-white/[0.04] text-slate-300"
             }`}>
               <Icon className="h-4 w-4" />
             </div>
 
-            <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+            <div className="rounded-[24px] border border-white/6 bg-[linear-gradient(180deg,rgba(24,30,39,0.98),rgba(20,25,34,0.98))] p-4 transition-colors group-hover:border-cyan-500/10">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <div className="text-sm font-semibold text-slate-950">{meta.label}</div>
-                  <div className="mt-1 text-xs text-slate-500">{formatDate(event.createdAt, locale)}</div>
+                  <div className="text-sm font-semibold text-white">{meta.label}</div>
+                  <div className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">{formatDate(event.createdAt, locale)}</div>
                 </div>
                 <StatusPill tone={meta.tone}>{event.selectedCount} selected</StatusPill>
               </div>
 
-              <div className="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-3">
-                <div className="rounded-2xl border border-slate-200 bg-white px-3 py-3">
+              <div className="mt-4 grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-3">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Seat count</div>
-                  <div className="mt-2 text-base font-semibold text-slate-950">{event.seatCount}</div>
+                  <div className="mt-2 text-base font-semibold text-white">{event.seatCount}</div>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white px-3 py-3">
+                <div className="rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-3">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Retry count</div>
-                  <div className="mt-2 text-base font-semibold text-slate-950">{event.retryCount}</div>
+                  <div className="mt-2 text-base font-semibold text-white">{event.retryCount}</div>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white px-3 py-3">
+                <div className="rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-3">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Seats</div>
-                  <div className="mt-2 truncate text-base font-semibold text-slate-950">
+                  <div className="mt-2 truncate text-base font-semibold text-white">
                     {event.seatIds.length ? event.seatIds.join(", ") : "--"}
                   </div>
                 </div>

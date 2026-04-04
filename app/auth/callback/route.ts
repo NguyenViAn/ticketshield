@@ -2,32 +2,12 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { isRoutingLocale, routing } from "@/i18n/routing";
-
-function resolveLocale(value: string | null) {
-  if (isRoutingLocale(value)) {
-    return value;
-  }
-
-  return routing.defaultLocale;
-}
-
-function getDefaultRedirect(role: unknown, locale: string) {
-  return role === "admin" ? `/${locale}/admin` : `/${locale}`;
-}
-
-function resolveNext(next: string | null, locale: string, role: unknown) {
-  if (next && next.startsWith("/")) {
-    return next;
-  }
-
-  return getDefaultRedirect(role, locale);
-}
+import { resolveRoleAwareRedirect, resolveRoutingLocale } from "@/utils/auth-routing";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const locale = resolveLocale(searchParams.get("locale"));
+  const locale = resolveRoutingLocale(searchParams.get("locale"));
 
   if (code) {
     const cookieStore = await cookies();
@@ -56,7 +36,7 @@ export async function GET(request: Request) {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      const next = resolveNext(searchParams.get("next"), locale, user?.user_metadata?.role);
+      const next = resolveRoleAwareRedirect(searchParams.get("next"), locale, user?.user_metadata?.role);
       return NextResponse.redirect(`${origin}${next}`);
     }
   }

@@ -2,15 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { isRoutingLocale, routing } from "@/i18n/routing";
-
-const PROTECTED_ROUTE_REGEXES = [
-  /^\/(en|vi)?\/?history/i,
-  /^\/(en|vi)?\/?payment/i,
-  /^\/(en|vi)?\/?profile/i,
-  /^\/(en|vi)?\/?admin/i,
-];
-
-const ADMIN_ROUTE_REGEX = /^\/(en|vi)?\/?admin/i;
+import { isAdminRoute, isAdminUser, isProtectedRoute, isUserProtectedRoute } from "@/utils/auth-routing";
 
 function resolveLocale(request: NextRequest) {
   const detectedLocale = request.nextUrl.locale;
@@ -33,10 +25,6 @@ function buildRedirectTarget(request: NextRequest, locale: string) {
   }
 
   return fullPath;
-}
-
-function isAdminUser(role: unknown) {
-  return role === "admin";
 }
 
 export async function updateSession(request: NextRequest) {
@@ -70,10 +58,12 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  const isProtectedRoute = PROTECTED_ROUTE_REGEXES.some((regex) => regex.test(pathname));
-  const isAdminRoute = ADMIN_ROUTE_REGEX.test(pathname);
+  const requiresAuth = isProtectedRoute(pathname);
+  const adminRoute = isAdminRoute(pathname);
+  const userProtectedRoute = isUserProtectedRoute(pathname);
+  const userIsAdmin = isAdminUser(user?.user_metadata?.role);
 
-  if (!user && isProtectedRoute) {
+  if (!user && requiresAuth) {
     const locale = resolveLocale(request);
     const url = request.nextUrl.clone();
     url.pathname = `/${locale}/login`;
@@ -82,10 +72,18 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isAdminRoute && !isAdminUser(user.user_metadata?.role)) {
+  if (user && adminRoute && !userIsAdmin) {
     const locale = resolveLocale(request);
     const url = request.nextUrl.clone();
     url.pathname = `/${locale}`;
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
+  if (user && userProtectedRoute && userIsAdmin) {
+    const locale = resolveLocale(request);
+    const url = request.nextUrl.clone();
+    url.pathname = `/${locale}/admin`;
     url.search = "";
     return NextResponse.redirect(url);
   }
