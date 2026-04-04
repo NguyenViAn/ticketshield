@@ -1,54 +1,65 @@
-import { NextResponse } from 'next/server'
-import { routing } from '@/i18n/routing'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+
+import { isRoutingLocale, routing } from "@/i18n/routing";
+
+function resolveLocale(value: string | null) {
+  if (isRoutingLocale(value)) {
+    return value;
+  }
+
+  return routing.defaultLocale;
+}
+
+function getDefaultRedirect(role: unknown, locale: string) {
+  return role === "admin" ? `/${locale}/admin` : `/${locale}`;
+}
+
+function resolveNext(next: string | null, locale: string, role: unknown) {
+  if (next && next.startsWith("/")) {
+    return next;
+  }
+
+  return getDefaultRedirect(role, locale);
+}
 
 export async function GET(request: Request) {
-    const { searchParams, origin } = new URL(request.url)
-    const code = searchParams.get('code')
+  const { searchParams, origin } = new URL(request.url);
+  const code = searchParams.get("code");
+  const locale = resolveLocale(searchParams.get("locale"));
 
-    // if "next" is in param, use it as the redirect URL
-    const resolveNext = (value: string | null) => {
-        if (!value || !value.startsWith('/')) {
-            return `/${routing.defaultLocale}`;
-        }
-        return value;
-    };
-
-    const next = resolveNext(searchParams.get('next'))
-
-    if (code) {
-        const cookieStore = await cookies()
-        const supabase = createServerClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            {
-                cookies: {
-                    getAll() {
-                        return cookieStore.getAll()
-                    },
-                    setAll(cookiesToSet) {
-                        try {
-                            cookiesToSet.forEach(({ name, value, options }) =>
-                                cookieStore.set(name, value, options)
-                            )
-                        } catch {
-                            // The `setAll` method was called from a Server Component.
-                            // This can be ignored if you have middleware refreshing
-                            // user sessions.
-                        }
-                    },
-                },
+  if (code) {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+            } catch {
+              // Middleware refreshes the session cookies for regular app requests.
             }
-        )
+          },
+        },
+      },
+    );
 
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-        if (!error) {
-            return NextResponse.redirect(`${origin}${next}`)
-        }
+    if (!error) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const next = resolveNext(searchParams.get("next"), locale, user?.user_metadata?.role);
+      return NextResponse.redirect(`${origin}${next}`);
     }
+  }
 
-    // return the user to an error page with instructions
-    return NextResponse.redirect(`${origin}/${routing.defaultLocale}/login?error=auth_failed`)
+  return NextResponse.redirect(`${origin}/${locale}/login?error=auth_failed`);
 }

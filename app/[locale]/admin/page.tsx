@@ -4,14 +4,14 @@ import { useMemo } from "react";
 import {
   Activity,
   AlertTriangle,
+  ArrowUpRight,
+  Ban,
   DollarSign,
-  ShieldAlert,
-  ShieldBan,
-  ShoppingCart,
-  Swords,
+  ShieldCheck,
   Ticket,
-  TrendingUp,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
+
 import { useAdminBookingEvents, useAdminMatches, useAdminStats, useAdminTickets, useBlockedUsers } from "@/hooks/use-admin";
 import { buildDailyTrend, buildSecuritySessions, summarizeSecurity } from "@/lib/admin-security";
 import {
@@ -21,7 +21,6 @@ import {
   SparkBars,
   StatusPill,
 } from "@/components/admin/admin-primitives";
-import { useTranslations } from "next-intl";
 
 function formatCurrency(value: number) {
   return `${new Intl.NumberFormat("vi-VN").format(value)} VND`;
@@ -36,6 +35,24 @@ function formatDate(dateStr: string) {
   });
 }
 
+function OverviewStat({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <div className="admin-surface-muted p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-3 text-2xl font-black tracking-tight text-slate-950">{value}</p>
+      <p className="mt-2 text-sm text-slate-500">{hint}</p>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const t = useTranslations("AdminDashboard");
   const { data: stats, isLoading: statsLoading } = useAdminStats();
@@ -46,241 +63,254 @@ export default function AdminDashboard() {
 
   const sessions = useMemo(
     () => buildSecuritySessions(bookingEvents, matches, blockedUsers),
-    [bookingEvents, matches, blockedUsers]
+    [bookingEvents, matches, blockedUsers],
   );
   const securitySummary = useMemo(() => summarizeSecurity(sessions), [sessions]);
-  const salesTrend = useMemo(() => buildDailyTrend(tickets.map((ticket) => ticket.created_at)), [tickets]);
   const securityTrend = useMemo(
     () =>
       buildDailyTrend(
         sessions
           .filter((session) => session.decision !== "allow")
-          .map((session) => session.timestamp)
+          .map((session) => session.timestamp),
       ),
-    [sessions]
+    [sessions],
+  );
+  const suspiciousSessions = useMemo(
+    () => sessions.filter((session) => session.decision !== "allow"),
+    [sessions],
+  );
+  const uniqueSignals = useMemo(
+    () =>
+      new Set(
+        suspiciousSessions.flatMap((session) =>
+          session.reasons.filter((reason) => reason !== "Stable selection pattern"),
+        ),
+      ).size,
+    [suspiciousSessions],
   );
 
-  const recentOrders = tickets.slice(0, 6);
-  const suspiciousSessions = sessions.filter((session) => session.decision !== "allow").slice(0, 6);
-  const peakSalesDay = salesTrend.reduce(
-    (best, current) => (current.count > best.count ? current : best),
-    salesTrend[0] ?? { key: "", label: "--", count: 0 }
-  );
+  const recentOrders = tickets.slice(0, 5);
+  const topSuspiciousSessions = suspiciousSessions.slice(0, 6);
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
         <AdminMetricCard
-          label={t("metric_matches")}
-          value={statsLoading ? "..." : String(stats.matchCount)}
-          hint={t("metric_matches_hint")}
-          icon={Swords}
-          accent="emerald"
-        />
-        <AdminMetricCard
-          label={t("metric_tickets")}
-          value={statsLoading ? "..." : String(stats.ticketCount)}
-          hint={t("metric_tickets_hint")}
-          icon={Ticket}
+          label="Monitored Sessions"
+          value={String(securitySummary.monitored)}
+          hint="Grouped booking sessions under review."
+          icon={ShieldCheck}
           accent="cyan"
         />
         <AdminMetricCard
-          label={t("metric_revenue")}
-          value={statsLoading ? "..." : formatCurrency(stats.totalRevenue)}
-          hint={t("metric_revenue_hint")}
-          icon={DollarSign}
-          accent="emerald"
+          label="Suspicious Sessions"
+          value={String(securitySummary.warned + securitySummary.blocked)}
+          hint="Warnings and blocked sessions in the latest scan."
+          icon={AlertTriangle}
+          accent="amber"
         />
         <AdminMetricCard
-          label={t("metric_blocked")}
-          value={statsLoading ? "..." : String(stats.blockedUserCount)}
-          hint={t("metric_blocked_hint")}
-          icon={ShieldBan}
+          label="Checkout Restrictions"
+          value={String(securitySummary.blocked)}
+          hint="Sessions blocked by explicit anti-abuse rules."
+          icon={Ban}
           accent="red"
         />
         <AdminMetricCard
-          label={t("metric_alerts")}
-          value={String(securitySummary.warned + securitySummary.blocked)}
-          hint={t("metric_alerts_hint")}
-          icon={ShieldAlert}
-          accent="amber"
+          label="Active Security Signals"
+          value={String(uniqueSignals)}
+          hint="Distinct suspicious patterns observed right now."
+          icon={Activity}
+          accent="emerald"
         />
       </div>
 
-      <div className="grid gap-6 2xl:grid-cols-[1.35fr_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_360px]">
         <AdminPanel>
           <AdminPanelHeader
-            title={t("sales_title")}
-            description={t("sales_desc")}
-            action={<StatusPill tone="emerald">{t("sales_badge")}</StatusPill>}
+            title="Risk Monitoring"
+            description="Security-first overview of suspicious booking behaviour over the last 7 days."
+            action={<StatusPill tone="amber">{securitySummary.avgRisk}% avg risk</StatusPill>}
           />
-          <div className="p-5 sm:p-6">
-            <div className="grid gap-5 lg:grid-cols-[1.4fr_0.9fr]">
-              <div>
-                <SparkBars values={salesTrend.map((item) => item.count)} tone="emerald" />
-                <div className="mt-3 grid grid-cols-7 gap-2 text-center text-xs text-slate-400">
-                  {salesTrend.map((item) => (
-                    <span key={item.key}>{item.label}</span>
-                  ))}
-                </div>
-              </div>
-              <div className="grid gap-3">
-                <div className="admin-surface-muted p-4">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <TrendingUp className="h-4 w-4 text-emerald-300" />
-                    <span className="text-sm">{t("peak_day")}</span>
-                  </div>
-                  <div className="mt-3 text-2xl font-bold text-white">{peakSalesDay.label}</div>
-                </div>
-                <div className="admin-surface-muted p-4">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <ShoppingCart className="h-4 w-4 text-cyan-300" />
-                    <span className="text-sm">{t("recent_orders_count")}</span>
-                  </div>
-                  <div className="mt-3 text-2xl font-bold text-white">{tickets.length}</div>
-                </div>
-                <div className="admin-surface-muted p-4">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <Activity className="h-4 w-4 text-amber-300" />
-                    <span className="text-sm">{t("conversion_watch")}</span>
-                  </div>
-                  <div className="mt-3 text-sm leading-6 text-slate-300">{t("conversion_desc")}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </AdminPanel>
-
-        <AdminPanel>
-          <AdminPanelHeader
-            title={t("risk_title")}
-            description={t("risk_desc")}
-            action={<StatusPill tone="amber">{t("risk_badge", { risk: securitySummary.avgRisk })}</StatusPill>}
-          />
-          <div className="p-5 sm:p-6">
+          <div className="space-y-5 p-5 sm:p-6">
             <SparkBars values={securityTrend.map((item) => item.count)} tone="cyan" />
-            <div className="mt-3 grid grid-cols-7 gap-2 text-center text-xs text-slate-400">
+            <div className="grid grid-cols-7 gap-2 text-center text-xs text-slate-500">
               {securityTrend.map((item) => (
                 <span key={item.key}>{item.label}</span>
               ))}
             </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <div className="admin-surface-muted p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{t("allow")}</p>
-                <p className="mt-2 text-xl font-bold text-white">{securitySummary.monitored - securitySummary.warned - securitySummary.blocked}</p>
-              </div>
-              <div className="admin-surface-muted p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{t("warn")}</p>
-                <p className="mt-2 text-xl font-bold text-amber-300">{securitySummary.warned}</p>
-              </div>
-              <div className="admin-surface-muted p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{t("block")}</p>
-                <p className="mt-2 text-xl font-bold text-red-300">{securitySummary.blocked}</p>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+              <OverviewStat
+                label={t("allow")}
+                value={String(securitySummary.monitored - securitySummary.warned - securitySummary.blocked)}
+                hint="Stable sessions with low risk."
+              />
+              <OverviewStat
+                label={t("warn")}
+                value={String(securitySummary.warned)}
+                hint="Needs analyst review."
+              />
+              <OverviewStat
+                label={t("block")}
+                value={String(securitySummary.blocked)}
+                hint="Restricted by security rules."
+              />
+            </div>
+
+            <div className="rounded-[28px] border border-cyan-100 bg-cyan-50/80 p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-700">Investigation focus</p>
+                  <h3 className="mt-3 text-2xl font-black tracking-tight text-slate-950">Suspicious session review takes priority</h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
+                    Start with warning and blocked sessions, then inspect event timelines and retry behaviour before moving to business summaries.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-cyan-200 bg-white px-4 py-3 text-right">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Live alerts</p>
+                  <p className="mt-2 text-3xl font-black text-slate-950">{suspiciousSessions.length}</p>
+                </div>
               </div>
             </div>
           </div>
         </AdminPanel>
-      </div>
 
-      <div className="grid gap-6 2xl:grid-cols-2">
         <AdminPanel>
-          <AdminPanelHeader title={t("recent_orders_title")} description={t("recent_orders_desc")} />
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="admin-table-head">
-                <tr>
-                  <th className="px-5 py-4 sm:px-6">{t("col_match")}</th>
-                  <th className="px-5 py-4 sm:px-6">{t("col_seat")}</th>
-                  <th className="px-5 py-4 sm:px-6">{t("col_price")}</th>
-                  <th className="px-5 py-4 sm:px-6">{t("col_status")}</th>
-                  <th className="px-5 py-4 sm:px-6">{t("col_time")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ticketsLoading ? (
-                  Array.from({ length: 5 }).map((_, index) => (
-                    <tr key={index} className="border-b border-white/10">
-                      <td className="px-5 py-4 sm:px-6" colSpan={5}>
-                        <div className="h-12 animate-pulse rounded-2xl bg-white/5" />
-                      </td>
-                    </tr>
-                  ))
-                ) : recentOrders.length ? (
-                  recentOrders.map((ticket) => (
-                    <tr key={ticket.id} className="admin-table-row">
-                      <td className="px-5 py-4 font-medium text-white sm:px-6">
-                        {ticket.matches?.home_team} vs {ticket.matches?.away_team}
-                      </td>
-                      <td className="px-5 py-4 sm:px-6">{ticket.seat}</td>
-                      <td className="px-5 py-4 sm:px-6">{formatCurrency(ticket.price_paid)}</td>
-                      <td className="px-5 py-4 sm:px-6">
-                        <StatusPill tone={ticket.status === "Cancelled" ? "red" : ticket.status === "Suspended" ? "amber" : "emerald"}>
-                          {ticket.status}
-                        </StatusPill>
-                      </td>
-                      <td className="px-5 py-4 text-slate-400 sm:px-6">{formatDate(ticket.created_at)}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td className="px-5 py-12 text-center text-slate-400 sm:px-6" colSpan={5}>
-                      {t("empty_orders")}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          <AdminPanelHeader
+            title="Operations Context"
+            description="Secondary business signals kept visible for matchday monitoring."
+            action={<StatusPill tone="neutral">Secondary</StatusPill>}
+          />
+          <div className="grid gap-4 p-5 sm:p-6">
+            <OverviewStat
+              label="Revenue"
+              value={statsLoading ? "..." : formatCurrency(stats.totalRevenue)}
+              hint="Gross platform revenue."
+            />
+            <OverviewStat
+              label="Tickets Sold"
+              value={statsLoading ? "..." : String(stats.ticketCount)}
+              hint="Completed ticket orders."
+            />
+            <OverviewStat
+              label="Managed Matches"
+              value={statsLoading ? "..." : String(stats.matchCount)}
+              hint="Fixtures currently active in admin."
+            />
+            <OverviewStat
+              label="Blocked Accounts"
+              value={statsLoading ? "..." : String(stats.blockedUserCount)}
+              hint="Accounts flagged for abuse."
+            />
           </div>
         </AdminPanel>
+      </div>
 
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
         <AdminPanel>
-          <AdminPanelHeader title={t("recent_suspicious_title")} description={t("recent_suspicious_desc")} />
+          <AdminPanelHeader
+            title="Recent Suspicious Sessions"
+            description="High-risk sessions sorted for fast review."
+            action={<StatusPill tone="amber">{topSuspiciousSessions.length} listed</StatusPill>}
+          />
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead className="admin-table-head">
                 <tr>
-                  <th className="px-5 py-4 sm:px-6">{t("col_session")}</th>
-                  <th className="px-5 py-4 sm:px-6">{t("col_user")}</th>
-                  <th className="px-5 py-4 sm:px-6">{t("col_risk")}</th>
-                  <th className="px-5 py-4 sm:px-6">{t("col_decision")}</th>
-                  <th className="px-5 py-4 sm:px-6">{t("col_reasons")}</th>
+                  <th className="px-5 py-4 sm:px-6">Session</th>
+                  <th className="px-5 py-4 sm:px-6">User</th>
+                  <th className="px-5 py-4 sm:px-6">Risk</th>
+                  <th className="px-5 py-4 sm:px-6">Decision</th>
+                  <th className="px-5 py-4 sm:px-6">Reason</th>
                 </tr>
               </thead>
               <tbody>
                 {bookingEventsLoading || matchesLoading ? (
                   Array.from({ length: 5 }).map((_, index) => (
-                    <tr key={index} className="border-b border-white/10">
+                    <tr key={index} className="border-b border-slate-100">
                       <td className="px-5 py-4 sm:px-6" colSpan={5}>
-                        <div className="h-12 animate-pulse rounded-2xl bg-white/5" />
+                        <div className="h-12 animate-pulse rounded-2xl bg-slate-100" />
                       </td>
                     </tr>
                   ))
-                ) : suspiciousSessions.length ? (
-                  suspiciousSessions.map((session) => (
+                ) : topSuspiciousSessions.length ? (
+                  topSuspiciousSessions.map((session) => (
                     <tr key={session.id} className="admin-table-row">
-                      <td className="px-5 py-4 font-mono text-xs text-white sm:px-6">{session.sessionId}</td>
+                      <td className="px-5 py-4 font-mono text-xs text-slate-950 sm:px-6">{session.sessionId}</td>
                       <td className="px-5 py-4 sm:px-6">{session.user}</td>
                       <td className="px-5 py-4 sm:px-6">
                         <div className="flex items-center gap-2">
-                          <AlertTriangle className="h-4 w-4 text-amber-300" />
-                          <span className="font-semibold text-white">{session.score}</span>
+                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          <span className="font-semibold text-slate-950">{session.score}</span>
                         </div>
                       </td>
                       <td className="px-5 py-4 sm:px-6">
-                        <StatusPill tone={session.decision === "block" ? "red" : "amber"}>{session.decision}</StatusPill>
+                        <StatusPill tone={session.decision === "block" ? "red" : "amber"}>{session.status}</StatusPill>
                       </td>
-                      <td className="px-5 py-4 text-slate-400 sm:px-6">{session.reasons.join(", ")}</td>
+                      <td className="px-5 py-4 text-slate-500 sm:px-6">{session.reason}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td className="px-5 py-12 text-center text-slate-400 sm:px-6" colSpan={5}>
+                    <td className="px-5 py-12 text-center text-slate-500 sm:px-6" colSpan={5}>
                       {t("empty_sessions")}
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
+          </div>
+        </AdminPanel>
+
+        <AdminPanel>
+          <AdminPanelHeader
+            title="Recent Orders"
+            description="Business activity remains visible, but is secondary to session investigation."
+            action={<StatusPill tone="cyan"><ArrowUpRight className="mr-1.5 h-3.5 w-3.5" />Context</StatusPill>}
+          />
+          <div className="space-y-3 p-5 sm:p-6">
+            {ticketsLoading ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="h-20 animate-pulse rounded-[22px] border border-slate-200 bg-slate-50" />
+              ))
+            ) : recentOrders.length ? (
+              recentOrders.map((ticket) => (
+                <div key={ticket.id} className="admin-surface-muted p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
+                        <Ticket className="h-4 w-4 text-cyan-600" />
+                        <span>
+                          {ticket.matches?.home_team} vs {ticket.matches?.away_team}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-sm text-slate-600">Seat {ticket.seat}</div>
+                      <div className="mt-1 text-xs text-slate-500">{formatDate(ticket.created_at)}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-slate-950">{formatCurrency(ticket.price_paid)}</div>
+                      <div className="mt-2">
+                        <StatusPill tone={ticket.status === "Cancelled" ? "red" : ticket.status === "Suspended" ? "amber" : "emerald"}>
+                          {ticket.status}
+                        </StatusPill>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
+                {t("empty_orders")}
+              </div>
+            )}
+
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center gap-2 text-slate-600">
+                <DollarSign className="h-4 w-4 text-emerald-600" />
+                <span className="text-sm font-medium">Revenue context remains available for reporting and screenshots.</span>
+              </div>
+            </div>
           </div>
         </AdminPanel>
       </div>

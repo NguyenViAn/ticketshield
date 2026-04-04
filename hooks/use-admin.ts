@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { buildSecuritySessions, summarizeSecurity, type SecuritySession } from "@/lib/admin-security";
 import {
+  fetchAdminSecurityContext,
   fetchAdminStats,
   fetchAllBookingEvents,
   fetchAllMatches,
@@ -41,6 +43,7 @@ function useAdminData<T>(fetcher: (supabase: ReturnType<typeof createClient>) =>
 }
 
 const defaultStats: AdminStats = { matchCount: 0, ticketCount: 0, totalRevenue: 0, blockedUserCount: 0 };
+const defaultSecuritySummary = { monitored: 0, warned: 0, blocked: 0, avgRisk: 0 };
 
 export function useAdminStats() {
   return useAdminData<AdminStats>((supabase) => fetchAdminStats(supabase), defaultStats);
@@ -64,4 +67,22 @@ export function useAdminPromotions() {
 
 export function useBlockedUsers() {
   return useAdminData<BlockedUser[]>((supabase) => fetchBlockedUsers(supabase), []);
+}
+
+export function useAdminSecuritySessions() {
+  return useAdminData<{
+    sessions: SecuritySession[];
+    summary: typeof defaultSecuritySummary;
+  }>(async (supabase) => {
+    const { blockedUsers, bookingEvents, matches } = await fetchAdminSecurityContext(supabase);
+    const sessions = buildSecuritySessions(bookingEvents, matches, blockedUsers);
+
+    return {
+      sessions,
+      summary: summarizeSecurity(sessions),
+    };
+  }, {
+    sessions: [],
+    summary: defaultSecuritySummary,
+  });
 }

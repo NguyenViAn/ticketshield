@@ -1,40 +1,162 @@
-import type { BlockedUser, BookingEvent, Match } from "@/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { BlockedUser, BookingEvent, BookingEventType, Match } from "@/types";
+
+export const SECURITY_REASON_COPY = {
+  stable: "Stable selection pattern",
+  rapidSwitch: "Rapid seat switching detected",
+  repeatedCheckout: "Repeated checkout attempts",
+  restrictedCheckout: "Checkout restricted by security rule",
+} as const;
+
+export type SecurityReason = (typeof SECURITY_REASON_COPY)[keyof typeof SECURITY_REASON_COPY];
 export type SecurityDecision = "allow" | "warn" | "block";
+export type SecurityStatus = "Normal" | "Warning" | "Blocked";
+export type SecurityScoreLabel = "Low" | "Medium" | "High";
+
+export interface SecurityTimelineEvent {
+  id: string;
+  type: BookingEventType;
+  createdAt: string;
+  seatCount: number;
+  selectedCount: number;
+  retryCount: number;
+  seatIds: string[];
+}
+
+export interface SecuritySessionMetrics {
+  totalSeatChanges: number;
+  selectedSeatsPeak: number;
+  retryCount: number;
+  currentDecision: SecurityStatus;
+}
 
 export interface SecuritySession {
   id: string;
+  rawSessionId: string;
   sessionId: string;
+  userId: string | null;
   user: string;
+  matchId: string | null;
   match: string;
   score: number;
+  scoreLabel: SecurityScoreLabel;
   decision: SecurityDecision;
-  reasons: string[];
+  status: SecurityStatus;
+  reason: SecurityReason;
+  reasons: SecurityReason[];
   timestamp: string;
+  totalEvents: number;
+  checkoutRetries: number;
+  seatsTouched: number;
+  metrics: SecuritySessionMetrics;
+  events: SecurityTimelineEvent[];
 }
 
-const REASON_SETS = [
-  "Rapid seat switching",
-  "Repeated checkout attempts",
-  "Seat selection spike",
-  "Suspicious session activity",
-  "Blocked account signal",
-  "Seat limit violation",
+const SEAT_CHANGE_TYPES = new Set<BookingEventType>(["seat_select", "seat_deselect"]);
+const WARNING_SCORE = 56;
+const BLOCKED_SCORE = 90;
+const RAPID_SWITCH_WINDOW_MS = 2500;
+const REASON_PRIORITY: SecurityReason[] = [
+  SECURITY_REASON_COPY.restrictedCheckout,
+  SECURITY_REASON_COPY.rapidSwitch,
+  SECURITY_REASON_COPY.repeatedCheckout,
+  SECURITY_REASON_COPY.stable,
 ];
 
 function hashString(value: string) {
   return value.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
 }
 
-function inferDecision(score: number): SecurityDecision {
-  if (score >= 85) return "block";
-  if (score >= 50) return "warn";
-  return "allow";
-}
-
 function getMetadataNumber(event: BookingEvent, key: keyof NonNullable<BookingEvent["metadata"]>) {
   const value = event.metadata?.[key];
   return typeof value === "number" ? value : null;
+}
+
+function getMetadataSeatIds(event: BookingEvent) {
+  return Array.isArray(event.metadata?.seatIds)
+    ? event.metadata.seatIds.filter((seatId): seatId is string => typeof seatId === "string" && seatId.trim().length > 0)
+    : [];
+}
+
+function getSelectedCount(event: BookingEvent) {
+  return getMetadataNumber(event, "selectedCount") ?? event.seat_count;
+}
+
+function getRetryCount(event: BookingEvent) {
+  return getMetadataNumber(event, "retryCount") ?? 0;
+}
+
+function shortenIdentifier(value: string, head = 8, tail = 4) {
+  if (value.length <= head + tail + 3) {
+    return value;
+  }
+
+  return `${value.slice(0, head)}...${value.slice(-tail)}`;
+}
+
+function getPublicSessionId(sessionId: string) {
+  return `TS-SEC-${hashString(sessionId).toString(16).slice(0, 8).toUpperCase()}`;
+}
+
+function inferDecision(
+  checkoutRestricted: boolean,
+  repeatedCheckoutAttempts: boolean,
+  rapidSeatSwitchDetected: boolean,
+  totalSeatChanges: number,
+  checkoutRetries: number,
+  checkoutFailures: number,
+) {
+  if (checkoutRestricted) {
+    return {
+      decision: "block" as const,
+      status: "Blocked" as const,
+      scoreLabel: "High" as const,
+      score: Math.min(100, BLOCKED_SCORE + checkoutFailures * 4 + checkoutRetries * 2),
+    };
+  }
+
+  if (repeatedCheckoutAttempts || rapidSeatSwitchDetected) {
+    const riskScore = WARNING_SCORE
+      + (rapidSeatSwitchDetected ? 12 : 0)
+      + (repeatedCheckoutAttempts ? 10 : 0)
+      + Math.min(totalSeatChanges, 6);
+
+    return {
+      decision: "warn" as const,
+      status: "Warning" as const,
+      scoreLabel: "Medium" as const,
+      score: Math.min(79, riskScore),
+    };
+  }
+
+  return {
+    decision: "allow" as const,
+    status: "Normal" as const,
+    scoreLabel: "Low" as const,
+    score: 18,
+  };
+}
+
+function getPrimaryReason(reasons: SecurityReason[]) {
+  return REASON_PRIORITY.find((reason) => reasons.includes(reason)) ?? SECURITY_REASON_COPY.stable;
+}
+
+function getDecisionRank(decision: SecurityDecision) {
+  if (decision === "block") return 3;
+  if (decision === "warn") return 2;
+  return 1;
+}
+
+export async function fetchSecurityBookingEvents(supabase: SupabaseClient, limit = 1000): Promise<BookingEvent[]> {
+  const { data, error } = await supabase
+    .from("booking_events")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data ?? []) as BookingEvent[];
 }
 
 export function buildSecuritySessions(events: BookingEvent[], matches: Match[], blockedUsers: BlockedUser[]): SecuritySession[] {
@@ -43,79 +165,132 @@ export function buildSecuritySessions(events: BookingEvent[], matches: Match[], 
   const groupedEvents = new Map<string, BookingEvent[]>();
 
   events.forEach((event) => {
-    const existingEvents = groupedEvents.get(event.session_id) ?? [];
-    existingEvents.push(event);
-    groupedEvents.set(event.session_id, existingEvents);
+    const sessionEvents = groupedEvents.get(event.session_id) ?? [];
+    sessionEvents.push(event);
+    groupedEvents.set(event.session_id, sessionEvents);
   });
 
   return Array.from(groupedEvents.entries())
-    .map(([sessionId, sessionEvents]) => {
+    .map(([rawSessionId, sessionEvents]) => {
       const orderedEvents = sessionEvents
         .slice()
         .sort((left, right) => new Date(left.created_at).getTime() - new Date(right.created_at).getTime());
-      const latestEvent = orderedEvents[orderedEvents.length - 1];
-      const seatSelectCount = orderedEvents.filter((event) => event.event_type === "seat_select").length;
-      const seatDeselectCount = orderedEvents.filter((event) => event.event_type === "seat_deselect").length;
+      const latestEvent = orderedEvents[orderedEvents.length - 1]!;
+      const totalSeatChanges = orderedEvents.filter((event) => SEAT_CHANGE_TYPES.has(event.event_type)).length;
       const checkoutAttempts = orderedEvents.filter((event) => event.event_type === "checkout_attempt").length;
       const checkoutFailures = orderedEvents.filter((event) => event.event_type === "checkout_failed").length;
-      const maxSeatCount = orderedEvents.reduce((max, event) => Math.max(max, event.seat_count, getMetadataNumber(event, "selectedCount") ?? 0), 0);
-      const minInteractionGap = orderedEvents.reduce<number | null>((currentMin, event) => {
-        const currentGap = getMetadataNumber(event, "timeSinceLastActionMs");
-        if (currentGap === null) return currentMin;
-        if (currentMin === null) return currentGap;
-        return Math.min(currentMin, currentGap);
-      }, null);
-      const retryCount = orderedEvents.reduce((max, event) => Math.max(max, getMetadataNumber(event, "retryCount") ?? 0), 0);
-      const userId = latestEvent?.user_id ?? null;
-      const reasons: string[] = [];
-      let score = 10;
+      const seatIdsTouched = new Set<string>();
+      const recordedRetryCount = orderedEvents.reduce((max, event) => Math.max(max, getRetryCount(event)), 0);
+      const retryCount = Math.max(recordedRetryCount, checkoutAttempts);
+      const checkoutRetries = Math.max(0, Math.max(checkoutAttempts - 1, recordedRetryCount > 0 ? recordedRetryCount - 1 : 0));
 
-      if (maxSeatCount >= 4) {
-        score += 20;
-        reasons.push(REASON_SETS[2]);
+      let selectedSeatsPeak = 0;
+      let rapidSeatSwitchBursts = 0;
+      let previousSeatChangeTimestamp: number | null = null;
+
+      orderedEvents.forEach((event) => {
+        const seatIds = getMetadataSeatIds(event);
+
+        seatIds.forEach((seatId) => seatIdsTouched.add(seatId));
+        selectedSeatsPeak = Math.max(selectedSeatsPeak, getSelectedCount(event), event.seat_count);
+
+        if (!SEAT_CHANGE_TYPES.has(event.event_type)) {
+          return;
+        }
+
+        const currentTimestamp = new Date(event.created_at).getTime();
+        if (
+          previousSeatChangeTimestamp !== null &&
+          currentTimestamp - previousSeatChangeTimestamp <= RAPID_SWITCH_WINDOW_MS
+        ) {
+          rapidSeatSwitchBursts += 1;
+        }
+
+        previousSeatChangeTimestamp = currentTimestamp;
+      });
+
+      const userId = latestEvent.user_id ?? null;
+      const rapidSeatSwitchDetected = totalSeatChanges >= 4 || (totalSeatChanges >= 2 && rapidSeatSwitchBursts >= 1);
+      const repeatedCheckoutAttempts = checkoutAttempts >= 2 || recordedRetryCount >= 2;
+      const checkoutRestricted = (userId ? blockedSet.has(userId) : false) || checkoutFailures >= 2;
+      const reasonSet = new Set<SecurityReason>();
+
+      if (checkoutRestricted) {
+        reasonSet.add(SECURITY_REASON_COPY.restrictedCheckout);
       }
 
-      if (maxSeatCount > 4) {
-        score += 40;
-        reasons.push(REASON_SETS[5]);
+      if (rapidSeatSwitchDetected) {
+        reasonSet.add(SECURITY_REASON_COPY.rapidSwitch);
       }
 
-      if (seatDeselectCount >= 2 || (seatSelectCount + seatDeselectCount >= 5 && minInteractionGap !== null && minInteractionGap < 1500)) {
-        score += 25;
-        reasons.push(REASON_SETS[0]);
+      if (repeatedCheckoutAttempts) {
+        reasonSet.add(SECURITY_REASON_COPY.repeatedCheckout);
       }
 
-      if (checkoutAttempts >= 2 || retryCount >= 2) {
-        score += 20;
-        reasons.push(REASON_SETS[1]);
+      if (reasonSet.size === 0) {
+        reasonSet.add(SECURITY_REASON_COPY.stable);
       }
 
-      if (checkoutFailures >= 2 || retryCount >= 3) {
-        score += 20;
-        reasons.push(REASON_SETS[3]);
-      }
-
-      if (userId && blockedSet.has(userId)) {
-        score = Math.max(score, 90);
-        reasons.push(REASON_SETS[4]);
-      }
-
-      const distinctReasons = Array.from(new Set(reasons));
-      const boundedScore = Math.min(score, 100);
+      const reasons = Array.from(reasonSet);
+      const { decision, score, scoreLabel, status } = inferDecision(
+        checkoutRestricted,
+        repeatedCheckoutAttempts,
+        rapidSeatSwitchDetected,
+        totalSeatChanges,
+        checkoutRetries,
+        checkoutFailures,
+      );
+      const primaryReason = getPrimaryReason(reasons);
+      const matchId = latestEvent.match_id ? latestEvent.match_id : null;
 
       return {
-        id: latestEvent?.id ?? sessionId,
-        sessionId: `TS-AI-${hashString(sessionId).toString(16).slice(0, 8).toUpperCase()}`,
-        user: userId ? `User ${userId.slice(0, 6)}` : "Guest session",
-        match: matchMap.get(latestEvent?.match_id ?? "") ?? "Unknown fixture",
-        score: boundedScore,
-        decision: inferDecision(boundedScore),
-        reasons: distinctReasons.length ? distinctReasons : ["Stable behaviour"],
-        timestamp: latestEvent?.created_at ?? new Date().toISOString(),
+        id: rawSessionId,
+        rawSessionId,
+        sessionId: getPublicSessionId(rawSessionId),
+        userId,
+        user: userId ? shortenIdentifier(userId) : "Guest session",
+        matchId,
+        match: matchId ? matchMap.get(matchId) ?? `Match ${shortenIdentifier(matchId, 6, 4)}` : "Unknown match",
+        score,
+        scoreLabel,
+        decision,
+        status,
+        reason: primaryReason,
+        reasons,
+        timestamp: latestEvent.created_at,
+        totalEvents: orderedEvents.length,
+        checkoutRetries,
+        seatsTouched: seatIdsTouched.size || selectedSeatsPeak,
+        metrics: {
+          totalSeatChanges,
+          selectedSeatsPeak,
+          retryCount,
+          currentDecision: status,
+        },
+        events: orderedEvents.map((event) => ({
+          id: event.id,
+          type: event.event_type,
+          createdAt: event.created_at,
+          seatCount: event.seat_count,
+          selectedCount: getSelectedCount(event),
+          retryCount: getRetryCount(event),
+          seatIds: getMetadataSeatIds(event),
+        })),
       } satisfies SecuritySession;
     })
-    .sort((left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime())
-    .slice(0, 48);
+    .sort((left, right) => {
+      const riskRankDiff = getDecisionRank(right.decision) - getDecisionRank(left.decision);
+      if (riskRankDiff !== 0) {
+        return riskRankDiff;
+      }
+
+      const scoreDiff = right.score - left.score;
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+
+      return new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime();
+    });
 }
 
 export function buildDailyTrend(values: string[], days = 7) {

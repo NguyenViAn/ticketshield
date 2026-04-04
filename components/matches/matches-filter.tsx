@@ -1,29 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Filter, RotateCcw, Search, Shield, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { fetchTeamsByLeague } from "@/lib/services/matches";
+import { fetchLeagueNames, fetchStadiumNames, fetchTeamsByLeague } from "@/lib/services/matches";
 import { createClient } from "@/utils/supabase/client";
-
-const LEAGUE_OPTIONS = [
-  { value: "Premier League 24/25", label: "Premier League" },
-  { value: "Champions League", label: "Champions League" },
-  { value: "La Liga", label: "La Liga" },
-  { value: "Serie A", label: "Serie A" },
-  { value: "V-League 2024/25", label: "V-League 2024/25" },
-];
-
-const STADIUM_OPTIONS = [
-  { value: "Emirates Stadium", label: "Emirates Stadium" },
-  { value: "Santiago Bernabeu", label: "Santiago Bernabeu" },
-  { value: "Old Trafford", label: "Old Trafford" },
-  { value: "Camp Nou", label: "Camp Nou" },
-  { value: "Sân vận động Hàng Đẫy", label: "Sân Hàng Đẫy" },
-  { value: "Sân vận động Pleiku", label: "Sân Pleiku" },
-];
 
 const SECURITY_LEVELS = ["All", "Ultra", "Maximum", "High", "Standard"] as const;
 
@@ -32,11 +15,14 @@ export function MatchesFilter() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const t = useTranslations("MatchesFilter");
+  const supabase = useMemo(() => createClient(), []);
 
   const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
+  const [availableLeagues, setAvailableLeagues] = useState<string[]>([]);
+  const [availableStadiums, setAvailableStadiums] = useState<string[]>([]);
   const [availableTeams, setAvailableTeams] = useState<string[]>([]);
+  const [isLoadingFilters, setIsLoadingFilters] = useState(false);
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
-  const supabase = createClient();
 
   const activeLeague = searchParams.get("league") || "All";
   const activeStadium = searchParams.get("stadium") || "All";
@@ -85,6 +71,38 @@ export function MatchesFilter() {
   useEffect(() => {
     let isMounted = true;
 
+    const loadFilterOptions = async () => {
+      setIsLoadingFilters(true);
+
+      try {
+        const [leagues, stadiums] = await Promise.all([
+          fetchLeagueNames(supabase),
+          fetchStadiumNames(supabase),
+        ]);
+
+        if (isMounted) {
+          setAvailableLeagues(leagues);
+          setAvailableStadiums(stadiums);
+        }
+      } catch (error) {
+        console.error("Error fetching filter options:", error);
+      } finally {
+        if (isMounted) {
+          setIsLoadingFilters(false);
+        }
+      }
+    };
+
+    void loadFilterOptions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [supabase]);
+
+  useEffect(() => {
+    let isMounted = true;
+
     const loadTeams = async () => {
       setIsLoadingTeams(true);
 
@@ -102,7 +120,7 @@ export function MatchesFilter() {
       }
     };
 
-    loadTeams();
+    void loadTeams();
 
     return () => {
       isMounted = false;
@@ -152,12 +170,13 @@ export function MatchesFilter() {
           <select
             value={activeLeague}
             onChange={(event) => handleFilterChange("league", event.target.value)}
-            className={fieldClassName}
+            disabled={isLoadingFilters}
+            className={`${fieldClassName} disabled:cursor-not-allowed disabled:opacity-50`}
           >
             <option value="All">{t("allLeagues")}</option>
-            {LEAGUE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            {availableLeagues.map((league) => (
+              <option key={league} value={league}>
+                {league}
               </option>
             ))}
           </select>
@@ -195,12 +214,13 @@ export function MatchesFilter() {
           <select
             value={activeStadium}
             onChange={(event) => handleFilterChange("stadium", event.target.value)}
-            className={fieldClassName}
+            disabled={isLoadingFilters}
+            className={`${fieldClassName} disabled:cursor-not-allowed disabled:opacity-50`}
           >
             <option value="All">{t("allStadiums")}</option>
-            {STADIUM_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            {availableStadiums.map((stadium) => (
+              <option key={stadium} value={stadium}>
+                {stadium}
               </option>
             ))}
           </select>

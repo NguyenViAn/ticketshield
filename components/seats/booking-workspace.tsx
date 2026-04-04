@@ -1,17 +1,30 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CalendarClock, CheckCircle2, MapPin, ShieldAlert, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CalendarClock, CheckCircle2, Info, MapPin, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 
 import { SeatMapRadial } from "@/components/seats/seat-map-radial";
 import { TicketTierList } from "@/components/seats/ticket-tier-list";
-import { getTierDefinition, getTierFromSeatId, getSeatsTotalPrice, getSeatSelectionSummary, MAX_BOOKING_SEATS, sortSeatIds, type TicketTierId } from "@/utils/tickets";
+import {
+  getTierDefinition,
+  getTierFromSeatId,
+  getSeatsTotalPrice,
+  getSeatSelectionSummary,
+  MAX_BOOKING_SEATS,
+  sortSeatIds,
+  type TicketTierId,
+} from "@/utils/tickets";
 
 const SESSION_TIMER_SECONDS = 5 * 60;
 const INTERACTION_WARNING_WINDOW_MS = 8_000;
+const SECTION_RESET_NOTICE = "Selection cleared after section change";
+const EMPTY_SECTION_LABEL = "No section selected";
+const EMPTY_SEAT_LIST_LABEL = "No seats selected";
+const EMPTY_TOTAL_LABEL = "Choose seats to calculate total";
 
 type SessionRiskStatus = "Normal" | "Warning" | "Blocked";
 type SessionRiskScore = "Low" | "Medium" | "High";
@@ -34,21 +47,9 @@ function formatSessionTimer(totalSeconds: number) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function getInteractionTimestamp() {
-  return Date.now();
-}
-
-function getNextRiskState(interactionTimestamps: number[], checkoutRetryCount: number): SessionRiskState {
+function getNextRiskState(interactionTimestamps: number[]): SessionRiskState {
   const now = Date.now();
   const recentInteractions = interactionTimestamps.filter((timestamp) => now - timestamp <= INTERACTION_WARNING_WINDOW_MS);
-
-  if (checkoutRetryCount >= 2) {
-    return {
-      status: "Warning",
-      score: "Medium",
-      reason: "Repeated checkout attempts detected",
-    };
-  }
 
   if (recentInteractions.length >= 3) {
     return {
@@ -59,6 +60,30 @@ function getNextRiskState(interactionTimestamps: number[], checkoutRetryCount: n
   }
 
   return DEFAULT_RISK_STATE;
+}
+
+function getCtaHelperText(activeTier: TicketTierId | null, selectedSeatCount: number) {
+  if (!activeTier) {
+    return "Choose a section and at least 1 seat to continue";
+  }
+
+  if (selectedSeatCount === 0) {
+    return "Select between 1 and 4 seats to continue";
+  }
+
+  return "Review complete. Continue to secure payment";
+}
+
+function getRiskActionNote(status: SessionRiskStatus) {
+  if (status === "Blocked") {
+    return "Checkout may be restricted for this session";
+  }
+
+  if (status === "Warning") {
+    return "Additional verification may be required at checkout";
+  }
+
+  return null;
 }
 
 export function BookingWorkspace({
@@ -89,14 +114,18 @@ export function BookingWorkspace({
   const [sessionTimer, setSessionTimer] = useState(SESSION_TIMER_SECONDS);
   const [sessionRisk, setSessionRisk] = useState<SessionRiskState>(DEFAULT_RISK_STATE);
   const [interactionTimestamps, setInteractionTimestamps] = useState<number[]>([]);
-  const [checkoutRetryCount] = useState(0);
+  const [summaryNotice, setSummaryNotice] = useState<string | null>(null);
 
   const sortedSelectedSeats = useMemo(() => sortSeatIds(selectedSeats), [selectedSeats]);
   const selectedTierDefinition = activeTier ? getTierDefinition(activeTier) : null;
   const selectedTierPrice = selectedTierDefinition ? basePrice * selectedTierDefinition.priceMultiplier : null;
   const totalAmount = getSeatsTotalPrice(basePrice, sortedSelectedSeats);
   const currentStep = !activeTier ? 1 : sortedSelectedSeats.length === 0 ? 2 : 3;
-  const selectedSectionLabel = activeTier ?? "--";
+  const selectedSectionLabel = activeTier ?? EMPTY_SECTION_LABEL;
+  const seatListLabel = sortedSelectedSeats.length ? getSeatSelectionSummary(sortedSelectedSeats) : EMPTY_SEAT_LIST_LABEL;
+  const totalAmountLabel = sortedSelectedSeats.length ? `${totalAmount.toLocaleString(locale)} VND` : EMPTY_TOTAL_LABEL;
+  const ctaHelperText = getCtaHelperText(activeTier, sortedSelectedSeats.length);
+  const actionRiskNote = getRiskActionNote(sessionRisk.status);
 
   useEffect(() => {
     if (sortedSelectedSeats.length === 0) {
@@ -121,21 +150,21 @@ export function BookingWorkspace({
   }, [sortedSelectedSeats.length]);
 
   useEffect(() => {
-    setSessionRisk(getNextRiskState(interactionTimestamps, checkoutRetryCount));
-  }, [checkoutRetryCount, interactionTimestamps]);
+    setSessionRisk(getNextRiskState(interactionTimestamps));
+  }, [interactionTimestamps]);
 
   const handleChooseTier = (tierId: TicketTierId) => {
-    setActiveTier((currentTier) => {
-      if (currentTier === tierId) {
-        return currentTier;
-      }
+    if (activeTier === tierId) {
+      return;
+    }
 
-      setSelectedSeats([]);
-      setInteractionTimestamps([]);
-      setSessionRisk(DEFAULT_RISK_STATE);
-      setSessionTimer(SESSION_TIMER_SECONDS);
-      return tierId;
-    });
+    const hadSelection = selectedSeats.length > 0;
+    setActiveTier(tierId);
+    setSelectedSeats([]);
+    setInteractionTimestamps([]);
+    setSessionRisk(DEFAULT_RISK_STATE);
+    setSessionTimer(SESSION_TIMER_SECONDS);
+    setSummaryNotice(hadSelection ? SECTION_RESET_NOTICE : null);
 
     document.getElementById("seat-map-step")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -143,10 +172,11 @@ export function BookingWorkspace({
   const handleSelectedSeatsChange = (nextSeats: string[]) => {
     setSelectedSeats(sortSeatIds(nextSeats));
     setSessionTimer(SESSION_TIMER_SECONDS);
+    setSummaryNotice(null);
   };
 
   const handleSeatInteraction = () => {
-    setInteractionTimestamps((currentTimestamps) => [...currentTimestamps, getInteractionTimestamp()].slice(-12));
+    setInteractionTimestamps((currentTimestamps) => [...currentTimestamps, Date.now()].slice(-12));
   };
 
   const handleClearSelection = () => {
@@ -154,6 +184,7 @@ export function BookingWorkspace({
     setInteractionTimestamps([]);
     setSessionRisk(DEFAULT_RISK_STATE);
     setSessionTimer(SESSION_TIMER_SECONDS);
+    setSummaryNotice(null);
   };
 
   const handleChooseAnotherSection = () => {
@@ -173,13 +204,9 @@ export function BookingWorkspace({
     router.push(`/${locale}/payment?${query.toString()}`);
   };
 
-  const selectedSeatTierLabels = Array.from(
-    new Set(sortedSelectedSeats.map((seatId) => getTierFromSeatId(seatId)).filter(Boolean)),
-  ).join(", ");
-
   return (
-    <div className="space-y-10">
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+    <div className="space-y-8">
+      <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <div className="max-w-4xl">
           <div className="flex flex-wrap items-center gap-3">
             <div className="inline-flex items-center gap-3 rounded-full border border-emerald-400/14 bg-emerald-400/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-300">
@@ -212,7 +239,7 @@ export function BookingWorkspace({
             ) : null}
           </div>
 
-          <div className="mt-6 max-w-5xl">
+          <div className="mt-5 max-w-5xl">
             <h1 className="text-balance text-3xl font-heading font-black uppercase leading-[0.94] tracking-tight text-white sm:text-4xl lg:text-5xl">
               <span>{homeTeam}</span>
               <span className="mx-3 inline-block align-middle text-white/24">{vsLabel}</span>
@@ -220,7 +247,7 @@ export function BookingWorkspace({
             </h1>
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center gap-3 text-base text-slate-300">
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-base text-slate-300">
             <span className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.03] px-4 py-2.5">
               <MapPin className="h-4 w-4 text-emerald-300" />
               {stadium}
@@ -240,8 +267,8 @@ export function BookingWorkspace({
             {(selectedTierPrice ?? basePrice).toLocaleString(locale)}
           </div>
           <div className="mt-2 text-base font-semibold text-slate-400">VND</div>
-          <div className="mt-5 h-px bg-white/8" />
-          <p className="mt-5 text-sm leading-7 text-slate-300">
+          <div className="mt-4 h-px bg-white/8" />
+          <p className="mt-4 text-sm leading-7 text-slate-300">
             {activeTier
               ? `Selected tier: ${activeTier}. Continue to choose up to ${MAX_BOOKING_SEATS} seats in this section.`
               : "Choose a ticket tier first, then select seats and review the booking before payment."}
@@ -251,7 +278,7 @@ export function BookingWorkspace({
 
       <StepIndicator currentStep={currentStep} />
 
-      <section id="seat-tier-step" className="space-y-5">
+      <section id="seat-tier-step" className="space-y-4">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.26em] text-emerald-300">Step 1</div>
           <h2 className="mt-2 text-2xl font-heading font-black tracking-tight text-white">
@@ -261,8 +288,8 @@ export function BookingWorkspace({
         <TicketTierList matchId={matchId} basePrice={basePrice} activeTier={activeTier} onChooseTier={handleChooseTier} />
       </section>
 
-      <section id="seat-map-step" className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
-        <div className="space-y-5">
+      <section id="seat-map-step" className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+        <div className="space-y-4">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.26em] text-emerald-300">Step 2</div>
             <h2 className="mt-2 text-2xl font-heading font-black tracking-tight text-white">
@@ -284,44 +311,88 @@ export function BookingWorkspace({
             title="Booking Summary"
             actionLabel={sortedSelectedSeats.length ? "Clear selection" : undefined}
             onAction={sortedSelectedSeats.length ? handleClearSelection : undefined}
+            tone="primary"
           >
+            <AnimatePresence initial={false}>
+              {summaryNotice ? (
+                <motion.div
+                  key={summaryNotice}
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="mb-4 flex items-start gap-2 rounded-[18px] border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100"
+                >
+                  <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{summaryNotice}</span>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+
             <SummaryRow label="Selected seats" value={`${sortedSelectedSeats.length}/${MAX_BOOKING_SEATS}`} />
             <SummaryRow label="Section" value={selectedSectionLabel} />
-            <SummaryRow label="Seat list" value={sortedSelectedSeats.length ? getSeatSelectionSummary(sortedSelectedSeats) : "--"} />
-            <SummaryRow label="Total amount" value={sortedSelectedSeats.length ? `${totalAmount.toLocaleString(locale)} VND` : "--"} />
+            <SummaryRow label="Seat list" value={seatListLabel} />
+            <SummaryRow label="Total amount" value={totalAmountLabel} />
+
             <div className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.03] p-4">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Selected Seats</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Selected seats</div>
               <div className="mt-3 space-y-2">
-                {sortedSelectedSeats.length ? (
-                  sortedSelectedSeats.map((seatId) => (
-                    <div key={seatId} className="flex items-center justify-between text-sm text-slate-200">
-                      <span>{seatId}</span>
-                      <span className="text-slate-400">{getTierFromSeatId(seatId)}</span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-sm text-slate-400">No seats selected yet.</div>
-                )}
+                <AnimatePresence initial={false} mode="popLayout">
+                  {sortedSelectedSeats.length ? (
+                    sortedSelectedSeats.map((seatId) => (
+                      <motion.div
+                        key={seatId}
+                        layout
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        className="flex items-center justify-between text-sm text-slate-200"
+                      >
+                        <span>{seatId}</span>
+                        <span className="text-slate-400">{getTierFromSeatId(seatId)}</span>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <motion.div
+                      key="empty-seats"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="text-sm text-slate-400"
+                    >
+                      No seats selected
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </PanelShell>
 
-          <PanelShell title="Session Risk">
-            <RiskStatusRow status={sessionRisk.status} score={sessionRisk.score} />
+          <PanelShell title="Session Control">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Session Risk</div>
+            <div className="mt-3">
+              <RiskStatusRow status={sessionRisk.status} score={sessionRisk.score} />
+            </div>
             <div className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.03] p-4 text-sm text-slate-300">
               <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Reason</div>
               <div className="mt-2">{sessionRisk.reason}</div>
             </div>
-          </PanelShell>
+            <p className="mt-4 text-sm leading-6 text-slate-400">
+              Monitoring seat switching and checkout behaviour
+            </p>
 
-          <PanelShell title="Booking Rules">
-            <RuleItem text="Maximum 4 seats per booking" />
-            <RuleItem text="Duplicate seat conflicts are blocked" />
-            <RuleItem text="Suspicious activity may trigger warning or block" />
+            <div className="mt-5 rounded-[18px] border border-white/8 bg-white/[0.03] p-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Booking Rules</div>
+              <div className="mt-3 space-y-3">
+                <RuleItem text="Maximum 4 seats per booking" />
+                <RuleItem text="Duplicate seat conflicts are blocked" />
+                <RuleItem text="Suspicious activity may trigger warning or block" />
+              </div>
+            </div>
+
             <div className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.03] p-4">
               <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
                 <ShieldCheck className="h-4 w-4 text-emerald-300" />
-                Session timer
+                Session Timer
               </div>
               <div className="mt-2 text-2xl font-heading font-black text-white">{formatSessionTimer(sessionTimer)}</div>
               <div className="mt-2 text-xs text-slate-400">Seats are confirmed only after successful checkout.</div>
@@ -337,6 +408,26 @@ export function BookingWorkspace({
             >
               Proceed to Payment
             </button>
+            <div className="mt-3 text-sm text-slate-400">{ctaHelperText}</div>
+
+            <AnimatePresence initial={false}>
+              {actionRiskNote ? (
+                <motion.div
+                  key={actionRiskNote}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  className={`mt-3 rounded-[18px] border px-4 py-3 text-sm ${
+                    sessionRisk.status === "Blocked"
+                      ? "border-rose-400/18 bg-rose-400/10 text-rose-100"
+                      : "border-amber-300/18 bg-amber-300/10 text-amber-100"
+                  }`}
+                >
+                  {actionRiskNote}
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+
             <button
               type="button"
               onClick={handleChooseAnotherSection}
@@ -345,7 +436,7 @@ export function BookingWorkspace({
               Choose Another Section
             </button>
             <div className="mt-4 text-xs text-slate-400">
-              Current seat group: {selectedSeatTierLabels || "No section selected"}
+              Current section: {activeTier || EMPTY_SECTION_LABEL}
             </div>
           </PanelShell>
         </div>
@@ -401,18 +492,30 @@ function PanelShell({
   children,
   onAction,
   title,
+  tone = "default",
 }: {
   actionLabel?: string;
   children: ReactNode;
   onAction?: () => void;
   title: string;
+  tone?: "default" | "primary";
 }) {
   return (
-    <div className="rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,19,15,0.98))] p-5 shadow-[0_24px_60px_-40px_rgba(0,0,0,0.52)]">
+    <div
+      className={`rounded-[26px] border p-5 shadow-[0_24px_60px_-40px_rgba(0,0,0,0.52)] ${
+        tone === "primary"
+          ? "border-emerald-500/12 bg-[linear-gradient(180deg,rgba(15,23,42,0.95),rgba(9,27,18,0.98))]"
+          : "border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,19,15,0.98))]"
+      }`}
+    >
       <div className="flex items-center justify-between gap-3">
         <div className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-400">{title}</div>
         {actionLabel && onAction ? (
-          <button type="button" onClick={onAction} className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300 hover:text-emerald-200">
+          <button
+            type="button"
+            onClick={onAction}
+            className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300 hover:text-emerald-200"
+          >
             {actionLabel}
           </button>
         ) : null}
@@ -426,7 +529,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-white/6 py-3 last:border-b-0">
       <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</div>
-      <div className="text-sm font-semibold text-white">{value}</div>
+      <div className="max-w-[14rem] text-right text-sm font-semibold text-white">{value}</div>
     </div>
   );
 }

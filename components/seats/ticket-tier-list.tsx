@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { useLocale } from "next-intl";
 
@@ -33,7 +33,7 @@ export function TicketTierList({
     Economy: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const locale = useLocale();
 
   useEffect(() => {

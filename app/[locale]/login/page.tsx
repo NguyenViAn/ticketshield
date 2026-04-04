@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Suspense, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowRight,
   Chrome,
@@ -24,10 +24,23 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
+function getDefaultRedirect(role: unknown, locale: string) {
+  return role === "admin" ? `/${locale}/admin` : `/${locale}`;
+}
+
+function resolveRequestedRedirect(rawRedirect: string | null) {
+  if (!rawRedirect || !rawRedirect.startsWith("/")) {
+    return null;
+  }
+
+  return rawRedirect === "/" ? null : rawRedirect;
+}
+
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
+  const locale = useLocale();
   const t = useTranslations("Login");
 
   const [isLoginMode, setIsLoginMode] = useState(true);
@@ -41,11 +54,10 @@ function LoginContent() {
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
 
-  const rawRedirect = searchParams.get("redirect");
-  const fallbackRedirect = "/";
-  const redirectUrl =
-    rawRedirect && rawRedirect.startsWith("/") ? (rawRedirect === "/" ? fallbackRedirect : rawRedirect) : fallbackRedirect;
+  const requestedRedirect = resolveRequestedRedirect(searchParams.get("redirect"));
   const profileAfterReset = "/profile";
+
+  const resolvePostAuthRedirect = (role: unknown) => requestedRedirect ?? getDefaultRedirect(role, locale);
 
   const handleEmailAuth = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -53,13 +65,17 @@ function LoginContent() {
     setStep("scanning");
 
     try {
+      let authRole: unknown = null;
+
       if (isLoginMode) {
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) {
           throw signInError;
         }
+
+        authRole = data.user?.user_metadata?.role;
       } else {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -73,12 +89,16 @@ function LoginContent() {
         if (signUpError) {
           throw signUpError;
         }
+
+        authRole = data.user?.user_metadata?.role;
       }
+
+      const nextPath = resolvePostAuthRedirect(authRole);
 
       setTimeout(() => {
         setStep("success");
         setTimeout(() => {
-          router.push(redirectUrl);
+          router.push(nextPath);
         }, 1200);
       }, 1200);
     } catch (err: unknown) {
@@ -89,10 +109,17 @@ function LoginContent() {
 
   const handleGoogleLogin = async () => {
     try {
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      callbackUrl.searchParams.set("locale", locale);
+
+      if (requestedRedirect) {
+        callbackUrl.searchParams.set("next", requestedRedirect);
+      }
+
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectUrl)}`,
+          redirectTo: callbackUrl.toString(),
         },
       });
 

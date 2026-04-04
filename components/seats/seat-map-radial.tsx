@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { AlertCircle, MapPinned } from "lucide-react";
+import { type MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, Info, MapPinned } from "lucide-react";
 import { useLocale } from "next-intl";
 
 import { createClient } from "@/utils/supabase/client";
@@ -28,6 +28,12 @@ type SeatZone = {
   fill: string;
   stroke: string;
   seatFill: string;
+};
+
+type TooltipState = {
+  label: string;
+  x: number;
+  y: number;
 };
 
 const STADIUM_CENTER = { x: 0, y: 92 };
@@ -127,8 +133,11 @@ export function SeatMapRadial({
   const [takenSeats, setTakenSeats] = useState<string[]>([]);
   const [hoveredSeat, setHoveredSeat] = useState<string | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
-  const supabase = createClient();
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const supabase = useMemo(() => createClient(), []);
   const locale = useLocale();
+  const mapShellRef = useRef<HTMLDivElement | null>(null);
+  const isInactive = !activeTier;
 
   useEffect(() => {
     if (!matchId) {
@@ -155,14 +164,40 @@ export function SeatMapRadial({
   const selectedTierPrice = selectedTierDefinition ? basePrice * selectedTierDefinition.priceMultiplier : null;
   const totalSeats = SEAT_ZONES.reduce((sum, zone) => sum + zone.count, 0);
   const occupancy = Math.round((takenSeats.length / totalSeats) * 100);
+  const selectedLegendLabel = activeTier ? `${activeTier} - ${selectedTierPrice?.toLocaleString(locale) ?? "--"} VND` : "Choose a section";
 
-  const handleSeatClick = (seatId: string, zoneId: TicketTierId, isTaken: boolean) => {
-    if (isTaken) {
+  const updateTooltip = (
+    event: ReactMouseEvent<SVGCircleElement>,
+    seatId: string,
+    zoneId: TicketTierId,
+    isTaken: boolean,
+  ) => {
+    const mapShell = mapShellRef.current;
+
+    if (!activeTier || zoneId !== activeTier || isTaken || !mapShell) {
+      setTooltip(null);
       return;
     }
 
-    if (!activeTier) {
-      setFeedbackMessage("Choose a ticket tier first.");
+    const containerRect = mapShell.getBoundingClientRect();
+    const tierDefinition = getTierDefinition(zoneId);
+
+    if (!tierDefinition) {
+      setTooltip(null);
+      return;
+    }
+
+    const seatPrice = basePrice * tierDefinition.priceMultiplier;
+
+    setTooltip({
+      label: `${seatId} - ${seatPrice.toLocaleString(locale)} VND`,
+      x: event.clientX - containerRect.left + 12,
+      y: event.clientY - containerRect.top - 12,
+    });
+  };
+
+  const handleSeatClick = (seatId: string, zoneId: TicketTierId, isTaken: boolean) => {
+    if (isInactive || isTaken) {
       return;
     }
 
@@ -188,8 +223,6 @@ export function SeatMapRadial({
     onSelectedSeatsChange([...selectedSeats, seatId]);
   };
 
-  const selectedLabel = activeTier ? `${activeTier} • ${selectedTierPrice?.toLocaleString(locale) ?? "--"} VND` : "Choose a section";
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 18 }}
@@ -200,11 +233,16 @@ export function SeatMapRadial({
       <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-300/80">Seat map</div>
-          <h3 className="mt-2 text-2xl font-heading font-black text-white">Select between 1 and 4 seats in the chosen section.</h3>
+          <h3 className="mt-2 text-2xl font-heading font-black text-white">
+            Select between 1 and 4 seats in the chosen section.
+          </h3>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <SeatMapMeta label="Selected" value={`${selectedSeats.length}/${MAX_BOOKING_SEATS}`} />
-            <SeatMapMeta label="Section" value={activeTier ?? "--"} />
-            <SeatMapMeta label="Price per seat" value={activeTier ? `${selectedTierPrice?.toLocaleString(locale)} VND` : "--"} />
+            <SeatMapMeta label="Section" value={activeTier ?? "No section selected"} />
+            <SeatMapMeta
+              label="Price per seat"
+              value={activeTier ? `${selectedTierPrice?.toLocaleString(locale)} VND` : "Choose tier first"}
+            />
           </div>
         </div>
         <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-300">
@@ -212,16 +250,29 @@ export function SeatMapRadial({
         </div>
       </div>
 
-      {feedbackMessage ? (
+      {!isInactive && feedbackMessage ? (
         <div className="mb-4 flex items-start gap-2 rounded-[18px] border border-amber-300/18 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{feedbackMessage}</span>
         </div>
       ) : null}
 
-      <div className="rounded-[26px] border border-emerald-500/10 bg-[linear-gradient(180deg,rgba(13,42,32,0.82),rgba(7,24,19,0.86))] p-4 sm:p-5">
-        <div className="mx-auto max-w-[760px]">
+      <div
+        className={`rounded-[26px] border border-emerald-500/10 bg-[linear-gradient(180deg,rgba(13,42,32,0.82),rgba(7,24,19,0.86))] p-4 sm:p-5 ${
+          isInactive ? "relative" : ""
+        }`}
+      >
+        <div ref={mapShellRef} className={`mx-auto max-w-[760px] ${isInactive ? "opacity-40" : ""}`}>
           <div className="relative aspect-square overflow-hidden rounded-[24px] border border-emerald-500/12 bg-[radial-gradient(circle_at_center,rgba(34,197,94,0.08),transparent_44%),linear-gradient(180deg,rgba(4,18,14,0.96),rgba(2,10,8,0.98))]">
+            {!isInactive && tooltip ? (
+              <div
+                className="pointer-events-none absolute z-20 rounded-[14px] border border-emerald-400/18 bg-slate-950/92 px-3 py-2 text-xs font-semibold text-emerald-100 shadow-[0_18px_40px_-24px_rgba(0,0,0,0.7)]"
+                style={{ left: tooltip.x, top: tooltip.y }}
+              >
+                {tooltip.label}
+              </div>
+            ) : null}
+
             <svg viewBox="-240 -150 480 420" className="h-full w-full" aria-label="Semi stadium seat map">
               <defs>
                 <radialGradient id="fieldGlow" cx="50%" cy="50%" r="65%">
@@ -287,7 +338,7 @@ export function SeatMapRadial({
                           initial={{ opacity: 0, scale: 0.8 }}
                           animate={{ opacity: isTaken ? 0.55 : 1, scale: isSelected ? 1.08 : 1 }}
                           transition={{ delay: zoneIndex * 0.03 + seatIndex * 0.006, duration: 0.18 }}
-                          whileHover={isInSelectedZone && !isTaken ? { scale: 1.14 } : undefined}
+                          whileHover={isInSelectedZone && !isTaken && !isInactive ? { scale: 1.14 } : undefined}
                           style={{
                             filter:
                               hoveredSeat === seatId && !isTaken
@@ -296,8 +347,15 @@ export function SeatMapRadial({
                                   ? "drop-shadow(0 0 14px rgba(74,222,128,0.6))"
                                   : "none",
                           }}
-                          onMouseEnter={() => setHoveredSeat(seatId)}
-                          onMouseLeave={() => setHoveredSeat((currentSeat) => (currentSeat === seatId ? null : currentSeat))}
+                          onMouseEnter={(event) => {
+                            setHoveredSeat(seatId);
+                            updateTooltip(event, seatId, zone.id, isTaken);
+                          }}
+                          onMouseMove={(event) => updateTooltip(event, seatId, zone.id, isTaken)}
+                          onMouseLeave={() => {
+                            setHoveredSeat((currentSeat) => (currentSeat === seatId ? null : currentSeat));
+                            setTooltip(null);
+                          }}
                           onClick={() => handleSeatClick(seatId, zone.id, isTaken)}
                         />
                       );
@@ -316,18 +374,34 @@ export function SeatMapRadial({
                 </text>
               </g>
             </svg>
+
+            {isInactive ? (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/46 backdrop-blur-[1px]">
+                <div className="mx-6 max-w-sm rounded-[22px] border border-emerald-400/16 bg-slate-950/88 px-5 py-5 text-center shadow-[0_24px_60px_-36px_rgba(0,0,0,0.72)]">
+                  <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-400/14 bg-emerald-400/10 text-emerald-300">
+                    <Info className="h-5 w-5" />
+                  </div>
+                  <div className="mt-4 text-sm font-semibold uppercase tracking-[0.18em] text-emerald-200">
+                    Seat selection locked
+                  </div>
+                  <div className="mt-2 text-sm leading-6 text-slate-300">
+                    Choose a ticket tier to unlock seat selection.
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className={`mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4 ${isInactive ? "opacity-45" : ""}`}>
         <LegendPill color="bg-emerald-400" label="Available" />
         <LegendPill color="bg-slate-500" label="Sold" />
-        <LegendPill color="bg-cyan-400" label={selectedLabel} />
+        <LegendPill color="bg-cyan-400" label={selectedLegendLabel} />
         <LegendPill color="bg-emerald-300 shadow-[0_0_12px_rgba(74,222,128,0.55)]" label="Selected" />
       </div>
 
-      <div className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-slate-300">
+      <div className={`mt-4 rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-slate-300 ${isInactive ? "opacity-45" : ""}`}>
         <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
           <MapPinned className="h-4 w-4" />
           Session reminder
@@ -340,10 +414,18 @@ export function SeatMapRadial({
 
 function SeatMapMeta({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3">
+    <motion.div layout className="rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3">
       <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</div>
-      <div className="mt-2 text-base font-semibold text-white">{value}</div>
-    </div>
+      <motion.div
+        key={`${label}:${value}`}
+        initial={{ opacity: 0.45, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
+        className="mt-2 text-base font-semibold text-white"
+      >
+        {value}
+      </motion.div>
+    </motion.div>
   );
 }
 

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { AdminPromotion, AdminStats, AdminTicket, BlockedUser, BookingEvent, Match } from "@/types";
+import { fetchSecurityBookingEvents } from "@/lib/admin-security";
+import type { AdminPromotion, AdminStats, AdminTicket, BlockedUser, Match } from "@/types";
 
 export async function fetchAdminStats(supabase: SupabaseClient): Promise<AdminStats> {
   const [matchRes, ticketRes, revenueRes, blockedRes] = await Promise.all([
@@ -88,15 +89,22 @@ export async function fetchAllTickets(supabase: SupabaseClient) {
   return (data ?? []) as AdminTicket[];
 }
 
-export async function fetchAllBookingEvents(supabase: SupabaseClient) {
-  const { data, error } = await supabase
-    .from("booking_events")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(500);
+export async function fetchAllBookingEvents(supabase: SupabaseClient, limit = 1000) {
+  return fetchSecurityBookingEvents(supabase, limit);
+}
 
-  if (error) throw error;
-  return (data ?? []) as BookingEvent[];
+export async function fetchAdminSecurityContext(supabase: SupabaseClient) {
+  const [bookingEvents, matches, blockedUsers] = await Promise.all([
+    fetchAllBookingEvents(supabase, 1000),
+    fetchAllMatches(supabase),
+    fetchBlockedUsers(supabase),
+  ]);
+
+  return {
+    bookingEvents,
+    matches,
+    blockedUsers,
+  };
 }
 
 export async function updateTicketStatus(supabase: SupabaseClient, id: string, status: string) {

@@ -3,6 +3,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Match } from "@/types";
 import type { MatchFilters } from "@/hooks/use-matches";
 
+function toReadableSupabaseError(error: {
+  code?: string | null;
+  details?: string | null;
+  hint?: string | null;
+  message?: string | null;
+}) {
+  const segments = [error.message, error.details, error.hint, error.code ? `Code: ${error.code}` : null].filter(Boolean);
+  return segments.join(" | ") || "Supabase query failed.";
+}
+
 export interface MatchSuggestionRow {
   away_team: string;
   date: string;
@@ -10,11 +20,29 @@ export interface MatchSuggestionRow {
   stadium: string;
 }
 
+export async function fetchLeagueNames(supabase: SupabaseClient) {
+  const { data, error } = await supabase.from("tournaments").select("name").order("name", { ascending: true });
+
+  if (error) {
+    throw new Error(toReadableSupabaseError(error));
+  }
+
+  return Array.from(new Set((data ?? []).map((tournament) => String(tournament.name)))).sort();
+}
+
+export async function fetchStadiumNames(supabase: SupabaseClient) {
+  const { data, error } = await supabase.from("matches").select("stadium").order("stadium", { ascending: true });
+
+  if (error) {
+    throw new Error(toReadableSupabaseError(error));
+  }
+
+  return Array.from(new Set((data ?? []).map((match) => String(match.stadium)))).sort();
+}
+
 export async function fetchMatches(supabase: SupabaseClient, filters: MatchFilters) {
-  let query = supabase.from("matches").select(`
-      *,
-      tournaments (name)
-    `);
+  const tournamentMap = await fetchTournamentNameMap(supabase);
+  let query = supabase.from("matches").select("*");
 
   if (filters.query) {
     const searchStr = `%${filters.query}%`;
@@ -32,10 +60,13 @@ export async function fetchMatches(supabase: SupabaseClient, filters: MatchFilte
   const { data, error } = await query.order("date", { ascending: true });
 
   if (error) {
-    throw error;
+    throw new Error(toReadableSupabaseError(error));
   }
 
-  let formattedData = (data ?? []) as Match[];
+  let formattedData = ((data ?? []) as Match[]).map((match) => ({
+    ...match,
+    tournaments: match.tournament_id ? { name: tournamentMap.get(match.tournament_id) ?? "" } : undefined,
+  }));
 
   if (filters.league && filters.league !== "All") {
     formattedData = formattedData.filter((match) => match.tournaments?.name === filters.league);
@@ -49,31 +80,38 @@ export async function fetchMatches(supabase: SupabaseClient, filters: MatchFilte
 }
 
 export async function fetchFeaturedMatches(supabase: SupabaseClient) {
+  const tournamentMap = await fetchTournamentNameMap(supabase);
   const { data, error } = await supabase
     .from("matches")
-    .select("*, tournaments(name)")
+    .select("*")
     .limit(3);
 
   if (error) {
-    throw error;
+    throw new Error(toReadableSupabaseError(error));
   }
 
-  return (data ?? []) as Match[];
+  return ((data ?? []) as Match[]).map((match) => ({
+    ...match,
+    tournaments: match.tournament_id ? { name: tournamentMap.get(match.tournament_id) ?? "" } : undefined,
+  }));
 }
 
 export async function fetchTeamsByLeague(supabase: SupabaseClient, league: string) {
-  let query = supabase
-    .from("matches")
-    .select("home_team, away_team, tournaments!inner(name)");
+  let query = supabase.from("matches").select("home_team, away_team");
 
   if (league !== "All") {
-    query = query.eq("tournaments.name", league);
+    const tournamentId = await fetchTournamentIdByName(supabase, league);
+    if (!tournamentId) {
+      return [];
+    }
+
+    query = query.eq("tournament_id", tournamentId);
   }
 
   const { data, error } = await query;
 
   if (error) {
-    throw error;
+    throw new Error(toReadableSupabaseError(error));
   }
 
   const teams = new Set<string>();
@@ -96,8 +134,32 @@ export async function fetchMatchSuggestions(supabase: SupabaseClient, query: str
     .limit(4);
 
   if (error) {
-    throw error;
+    throw new Error(toReadableSupabaseError(error));
   }
 
   return (data ?? []) as MatchSuggestionRow[];
+}
+
+async function fetchTournamentIdByName(supabase: SupabaseClient, league: string) {
+  const { data, error } = await supabase
+    .from("tournaments")
+    .select("id")
+    .eq("name", league)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(toReadableSupabaseError(error));
+  }
+
+  return data?.id ?? null;
+}
+
+async function fetchTournamentNameMap(supabase: SupabaseClient) {
+  const { data, error } = await supabase.from("tournaments").select("id, name");
+
+  if (error) {
+    throw new Error(toReadableSupabaseError(error));
+  }
+
+  return new Map((data ?? []).map((tournament) => [tournament.id as string, tournament.name as string]));
 }

@@ -39,6 +39,34 @@ type CheckoutRpcResult = {
   totalPrice?: number;
 };
 
+function getReadableErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object") {
+    const supabaseError = error as {
+      code?: string;
+      details?: string;
+      hint?: string;
+      message?: string;
+    };
+
+    const segments = [
+      supabaseError.message,
+      supabaseError.details,
+      supabaseError.hint,
+      supabaseError.code ? `Code: ${supabaseError.code}` : undefined,
+    ].filter(Boolean);
+
+    if (segments.length > 0) {
+      return segments.join(" | ");
+    }
+  }
+
+  return "Unable to complete the transaction.";
+}
+
 export default function PaymentPage() {
   return (
     <Suspense fallback={<PaymentPageFallback />}>
@@ -192,11 +220,13 @@ function PaymentContent() {
         seatCount: seatIds.length,
       });
     } catch (err: unknown) {
-      console.error("Purchase error:", err);
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : "Unable to complete the transaction.";
+      console.error("Purchase error:", {
+        error: err,
+        matchId,
+        seatIds,
+        userId: user.id,
+      });
+      const errorMessage = getReadableErrorMessage(err);
 
       await logBookingEvent(supabase, {
         eventType: "checkout_failed",
