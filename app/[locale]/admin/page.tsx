@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   Ban,
   DollarSign,
+  RefreshCcw,
   ShieldCheck,
   Ticket,
 } from "lucide-react";
@@ -57,7 +58,7 @@ export default function AdminDashboard() {
   const t = useTranslations("AdminDashboard");
   const { data: stats, isLoading: statsLoading } = useAdminStats();
   const { data: tickets, isLoading: ticketsLoading } = useAdminTickets();
-  const { data: bookingEvents, isLoading: bookingEventsLoading } = useAdminBookingEvents();
+  const { data: bookingEvents, isLoading: bookingEventsLoading, refetch: refetchBookingEvents } = useAdminBookingEvents();
   const { data: matches, isLoading: matchesLoading } = useAdminMatches();
   const { data: blockedUsers } = useBlockedUsers();
 
@@ -214,7 +215,19 @@ export default function AdminDashboard() {
           <AdminPanelHeader
             title="Recent Suspicious Sessions"
             description="High-risk sessions sorted for fast review."
-            action={<StatusPill tone="amber">{topSuspiciousSessions.length} listed</StatusPill>}
+            action={
+              <div className="flex items-center gap-2">
+                <StatusPill tone="amber">{topSuspiciousSessions.length} listed</StatusPill>
+                <button
+                  type="button"
+                  onClick={() => void refetchBookingEvents()}
+                  className="admin-button-muted inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em]"
+                >
+                  <RefreshCcw className="h-3.5 w-3.5" />
+                  Refresh
+                </button>
+              </div>
+            }
           />
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">

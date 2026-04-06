@@ -142,8 +142,16 @@ export default function AISecurityPage() {
             title="Security Session List"
             description="Grouped booking sessions with rule-based and AI verdict context side by side."
             action={
-              <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                 <span>{filteredSessions.length} sessions</span>
+                <button
+                  type="button"
+                  onClick={() => void refetch()}
+                  className="admin-button-muted inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em]"
+                >
+                  <RefreshCcw className="h-3.5 w-3.5" />
+                  Refresh
+                </button>
               </div>
             }
           />

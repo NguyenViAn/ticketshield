@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -71,6 +71,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const t = useTranslations("AdminShell");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const hasMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   const pageKey = useMemo(() => getPageKey(pathname), [pathname]);
 
@@ -205,40 +210,61 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                     <Bell className="h-4 w-4" />
                     <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-amber-500/80" />
                   </button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="admin-focus-ring flex h-11 items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.04] px-3 text-left transition-colors hover:border-cyan-400/24">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/12 text-sm font-semibold text-cyan-300">
-                          {user?.name?.slice(0, 1).toUpperCase() ?? "A"}
-                        </span>
-                        <span className="hidden sm:block">
-                          <span className="block max-w-[120px] truncate text-sm font-semibold text-white">
-                            {user?.name ?? t("default_user_name")}
+                  {hasMounted ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="admin-focus-ring flex h-11 items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.04] px-3 text-left transition-colors hover:border-cyan-400/24">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/12 text-sm font-semibold text-cyan-300">
+                            {user?.name?.slice(0, 1).toUpperCase() ?? "A"}
                           </span>
-                          <span className="block max-w-[120px] truncate text-xs text-slate-500">
-                            {user?.email ?? t("default_user_email")}
+                          <span className="hidden sm:block">
+                            <span className="block max-w-[120px] truncate text-sm font-semibold text-white">
+                              {user?.name ?? t("default_user_name")}
+                            </span>
+                            <span className="block max-w-[120px] truncate text-xs text-slate-500">
+                              {user?.email ?? t("default_user_email")}
+                            </span>
                           </span>
+                          <ChevronDown className="h-4 w-4 text-slate-400" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="mt-2 w-64 rounded-3xl border border-white/8 bg-[linear-gradient(180deg,rgba(28,33,43,0.99),rgba(22,27,36,0.99))] p-2 text-slate-200 shadow-[0_22px_44px_-30px_rgba(0,0,0,0.5)]">
+                        <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-3">
+                          <div className="text-sm font-semibold text-white">{user?.name ?? t("default_user_name")}</div>
+                          <div className="mt-1 text-xs text-slate-400">{user?.email ?? t("default_user_email")}</div>
+                        </div>
+                        <DropdownMenuItem asChild className="mt-2 rounded-2xl px-3 py-3 font-medium text-slate-200 focus:bg-white/[0.05] focus:text-white">
+                          <Link href="/admin/settings">{t("workspace_settings")}</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="rounded-2xl px-3 py-3 font-medium text-rose-300 focus:bg-rose-500/10 focus:text-rose-200"
+                          onClick={() => logout()}
+                        >
+                          <LogOut className="mr-2 h-4 w-4" />
+                          {t("sign_out")}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <button
+                      className="admin-focus-ring flex h-11 items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.04] px-3 text-left transition-colors"
+                      type="button"
+                      disabled
+                    >
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/12 text-sm font-semibold text-cyan-300">
+                        {user?.name?.slice(0, 1).toUpperCase() ?? "A"}
+                      </span>
+                      <span className="hidden sm:block">
+                        <span className="block max-w-[120px] truncate text-sm font-semibold text-white">
+                          {user?.name ?? t("default_user_name")}
                         </span>
-                        <ChevronDown className="h-4 w-4 text-slate-400" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="mt-2 w-64 rounded-3xl border border-white/8 bg-[linear-gradient(180deg,rgba(28,33,43,0.99),rgba(22,27,36,0.99))] p-2 text-slate-200 shadow-[0_22px_44px_-30px_rgba(0,0,0,0.5)]">
-                      <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-3">
-                        <div className="text-sm font-semibold text-white">{user?.name ?? t("default_user_name")}</div>
-                        <div className="mt-1 text-xs text-slate-400">{user?.email ?? t("default_user_email")}</div>
-                      </div>
-                      <DropdownMenuItem asChild className="mt-2 rounded-2xl px-3 py-3 font-medium text-slate-200 focus:bg-white/[0.05] focus:text-white">
-                        <Link href="/admin/settings">{t("workspace_settings")}</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="rounded-2xl px-3 py-3 font-medium text-rose-300 focus:bg-rose-500/10 focus:text-rose-200"
-                        onClick={() => logout()}
-                      >
-                        <LogOut className="mr-2 h-4 w-4" />
-                        {t("sign_out")}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <span className="block max-w-[120px] truncate text-xs text-slate-500">
+                          {user?.email ?? t("default_user_email")}
+                        </span>
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-slate-400" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

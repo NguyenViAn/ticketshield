@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { buildSecuritySessions, summarizeSecurity, type SecuritySession } from "@/lib/admin-security";
 import {
@@ -13,11 +13,14 @@ import {
 import type { AdminPromotion, AdminStats, AdminTicket, BlockedUser, BookingEvent, Match } from "@/types";
 import { createClient } from "@/utils/supabase/client";
 
-function useAdminData<T>(fetcher: (supabase: ReturnType<typeof createClient>) => Promise<T>, initial: T) {
+function useAdminData<T>(
+  fetcher: (supabase: ReturnType<typeof createClient>) => Promise<T>,
+  initial: T,
+) {
   const [data, setData] = useState<T>(initial);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const refetch = useCallback(async () => {
     setIsLoading(true);
@@ -36,7 +39,7 @@ function useAdminData<T>(fetcher: (supabase: ReturnType<typeof createClient>) =>
   }, [fetcher, supabase]);
 
   useEffect(() => {
-    refetch();
+    void refetch();
   }, [refetch]);
 
   return { data, isLoading, error, refetch };

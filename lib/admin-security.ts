@@ -233,6 +233,31 @@ function getDecisionRank(decision: SecurityDecision) {
   return 1;
 }
 
+function shouldResolveSuccessfulSession({
+  checkoutFailures,
+  checkoutRestricted,
+  hasAiHigh,
+  latestAiRiskLevel,
+  latestEventType,
+  latestRiskCheckStatus,
+}: {
+  checkoutFailures: number;
+  checkoutRestricted: boolean;
+  hasAiHigh: boolean;
+  latestAiRiskLevel: AiRiskLevel | null;
+  latestEventType: BookingEventType;
+  latestRiskCheckStatus: AiRiskCheckStatus | null;
+}) {
+  return (
+    latestEventType === "checkout_success" &&
+    latestAiRiskLevel === "low" &&
+    latestRiskCheckStatus === "passed" &&
+    checkoutFailures === 0 &&
+    !checkoutRestricted &&
+    !hasAiHigh
+  );
+}
+
 export async function fetchSecurityBookingEvents(supabase: SupabaseClient, limit = 1000): Promise<BookingEvent[]> {
   const { data, error } = await supabase
     .from("booking_events")
@@ -318,7 +343,7 @@ export function buildSecuritySessions(events: BookingEvent[], matches: Match[], 
       }
 
       const reasons = Array.from(reasonSet);
-      const { decision, score, scoreLabel, status } = inferDecision(
+      const inferredDecision = inferDecision(
         checkoutRestricted,
         repeatedCheckoutAttempts,
         rapidSeatSwitchDetected,
@@ -326,7 +351,6 @@ export function buildSecuritySessions(events: BookingEvent[], matches: Match[], 
         checkoutRetries,
         checkoutFailures,
       );
-      const primaryReason = getPrimaryReason(reasons);
       const matchId = latestEvent.match_id ? latestEvent.match_id : null;
       const latestAiEvent = aiEvents.reduce<BookingEvent | null>((latest, event) => {
         if (!latest) {
@@ -345,6 +369,24 @@ export function buildSecuritySessions(events: BookingEvent[], matches: Match[], 
       const hasAiWarning = aiEvents.some((event) => getAiRiskLevel(event) === "warning");
       const hasAiHigh = aiEvents.some((event) => getAiRiskLevel(event) === "high");
       const aiCheckCount = aiEvents.length;
+      const resolvedSuccessfulSession = shouldResolveSuccessfulSession({
+        checkoutFailures,
+        checkoutRestricted,
+        hasAiHigh,
+        latestAiRiskLevel,
+        latestEventType: latestEvent.event_type,
+        latestRiskCheckStatus,
+      });
+      const effectiveReasons = resolvedSuccessfulSession ? [SECURITY_REASON_COPY.stable] : reasons;
+      const primaryReason = getPrimaryReason(effectiveReasons);
+      const { decision, score, scoreLabel, status } = resolvedSuccessfulSession
+        ? {
+            decision: "allow" as const,
+            score: 18,
+            scoreLabel: "Low" as const,
+            status: "Normal" as const,
+          }
+        : inferredDecision;
 
       return {
         id: rawSessionId,
@@ -359,7 +401,7 @@ export function buildSecuritySessions(events: BookingEvent[], matches: Match[], 
         decision,
         status,
         reason: primaryReason,
-        reasons,
+        reasons: effectiveReasons,
         timestamp: latestEvent.created_at,
         totalEvents: orderedEvents.length,
         checkoutRetries,
