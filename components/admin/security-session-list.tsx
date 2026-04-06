@@ -20,6 +20,14 @@ function decisionTone(decision: SecurityDecision) {
   return "red" as const;
 }
 
+function aiTone(level: SecuritySession["ai"]["latestAiRiskLevel"], status: SecuritySession["ai"]["latestRiskCheckStatus"]) {
+  if (status === "failed_open") return "neutral" as const;
+  if (level === "high") return "red" as const;
+  if (level === "warning") return "amber" as const;
+  if (level === "low") return "emerald" as const;
+  return "neutral" as const;
+}
+
 export function SecuritySessionList({
   sessions,
   selectedSessionId,
@@ -96,15 +104,32 @@ export function SecuritySessionList({
             <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Short reason
+                  Rule-based decision
                 </div>
                 <div className="mt-1 line-clamp-2 text-sm leading-6 text-slate-300">{session.reason}</div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <StatusPill tone={aiTone(session.ai.latestAiRiskLevel, session.ai.latestRiskCheckStatus)}>
+                    {session.ai.latestRiskCheckStatus === "failed_open"
+                      ? "AI failed open"
+                      : session.ai.latestAiRiskLevel ?? "No AI check"}
+                  </StatusPill>
+                  <span className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                    {typeof session.ai.latestAiConfidence === "number"
+                      ? `${(session.ai.latestAiConfidence * 100).toFixed(1)}% confidence`
+                      : "No confidence"}
+                  </span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                <span>{session.scoreLabel}</span>
-                <span className="h-1 w-1 rounded-full bg-slate-600" />
-                <span>{session.totalEvents} events</span>
+              <div className="flex flex-col items-start gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 sm:items-end">
+                <div className="flex items-center gap-2">
+                  <span>{session.scoreLabel}</span>
+                  <span className="h-1 w-1 rounded-full bg-slate-600" />
+                  <span>{session.totalEvents} events</span>
+                </div>
+                <span>
+                  {session.ai.latestAiCheckedAt ? `AI checked ${formatDate(session.ai.latestAiCheckedAt, locale)}` : "AI not checked"}
+                </span>
               </div>
             </div>
           </button>

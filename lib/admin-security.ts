@@ -13,6 +13,9 @@ export type SecurityReason = (typeof SECURITY_REASON_COPY)[keyof typeof SECURITY
 export type SecurityDecision = "allow" | "warn" | "block";
 export type SecurityStatus = "Normal" | "Warning" | "Blocked";
 export type SecurityScoreLabel = "Low" | "Medium" | "High";
+export type AiRiskLevel = "low" | "warning" | "high";
+export type AiRiskStep = "seat_page" | "payment_pre_checkout";
+export type AiRiskCheckStatus = "passed" | "failed_open";
 
 export interface SecurityTimelineEvent {
   id: string;
@@ -22,6 +25,12 @@ export interface SecurityTimelineEvent {
   selectedCount: number;
   retryCount: number;
   seatIds: string[];
+  riskLevel: AiRiskLevel | null;
+  confidence: number | null;
+  checkedAt: string | null;
+  step: AiRiskStep | null;
+  riskCheckStatus: AiRiskCheckStatus | null;
+  warningAccepted: boolean;
 }
 
 export interface SecuritySessionMetrics {
@@ -29,6 +38,21 @@ export interface SecuritySessionMetrics {
   selectedSeatsPeak: number;
   retryCount: number;
   currentDecision: SecurityStatus;
+  aiCheckCount: number;
+  hasAiWarning: boolean;
+  hasAiHigh: boolean;
+  latestRiskCheckStatus: AiRiskCheckStatus | null;
+}
+
+export interface SecuritySessionAiOverview {
+  latestAiRiskLevel: AiRiskLevel | null;
+  latestAiConfidence: number | null;
+  latestAiCheckedAt: string | null;
+  latestAiStep: AiRiskStep | null;
+  latestRiskCheckStatus: AiRiskCheckStatus | null;
+  aiCheckCount: number;
+  hasAiWarning: boolean;
+  hasAiHigh: boolean;
 }
 
 export interface SecuritySession {
@@ -50,6 +74,7 @@ export interface SecuritySession {
   checkoutRetries: number;
   seatsTouched: number;
   metrics: SecuritySessionMetrics;
+  ai: SecuritySessionAiOverview;
   events: SecurityTimelineEvent[];
 }
 
@@ -73,6 +98,59 @@ function getMetadataNumber(event: BookingEvent, key: keyof NonNullable<BookingEv
   return typeof value === "number" ? value : null;
 }
 
+function getMetadataString(event: BookingEvent, key: keyof NonNullable<BookingEvent["metadata"]>) {
+  const value = event.metadata?.[key];
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function getMetadataNumericValue(event: BookingEvent, key: keyof NonNullable<BookingEvent["metadata"]>) {
+  const value = event.metadata?.[key];
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function getAiRiskLevel(event: BookingEvent): AiRiskLevel | null {
+  const value = event.metadata?.riskLevel;
+  return value === "low" || value === "warning" || value === "high" ? value : null;
+}
+
+function getAiRiskCheckStatus(event: BookingEvent): AiRiskCheckStatus | null {
+  const value = event.metadata?.riskCheckStatus;
+  return value === "passed" || value === "failed_open" ? value : null;
+}
+
+function getAiRiskStep(event: BookingEvent): AiRiskStep | null {
+  const value = event.metadata?.step;
+  return value === "seat_page" || value === "payment_pre_checkout" ? value : null;
+}
+
+function getAiCheckedAt(event: BookingEvent) {
+  const checkedAt = getMetadataString(event, "checkedAt");
+  if (!checkedAt) {
+    return event.created_at;
+  }
+
+  const checkedAtTimestamp = new Date(checkedAt).getTime();
+  return Number.isNaN(checkedAtTimestamp) ? event.created_at : new Date(checkedAtTimestamp).toISOString();
+}
+
+function getAiConfidence(event: BookingEvent) {
+  return getMetadataNumericValue(event, "confidence");
+}
+
+function getWarningAccepted(event: BookingEvent) {
+  return event.metadata?.warningAccepted === true;
+}
+
 function getMetadataSeatIds(event: BookingEvent) {
   return Array.isArray(event.metadata?.seatIds)
     ? event.metadata.seatIds.filter((seatId): seatId is string => typeof seatId === "string" && seatId.trim().length > 0)
@@ -85,6 +163,13 @@ function getSelectedCount(event: BookingEvent) {
 
 function getRetryCount(event: BookingEvent) {
   return getMetadataNumber(event, "retryCount") ?? 0;
+}
+
+function getAiRiskRank(level: AiRiskLevel | null) {
+  if (level === "high") return 3;
+  if (level === "warning") return 2;
+  if (level === "low") return 1;
+  return 0;
 }
 
 function shortenIdentifier(value: string, head = 8, tail = 4) {
@@ -176,6 +261,7 @@ export function buildSecuritySessions(events: BookingEvent[], matches: Match[], 
         .slice()
         .sort((left, right) => new Date(left.created_at).getTime() - new Date(right.created_at).getTime());
       const latestEvent = orderedEvents[orderedEvents.length - 1]!;
+      const aiEvents = orderedEvents.filter((event) => event.event_type === "ai_risk_checked");
       const totalSeatChanges = orderedEvents.filter((event) => SEAT_CHANGE_TYPES.has(event.event_type)).length;
       const checkoutAttempts = orderedEvents.filter((event) => event.event_type === "checkout_attempt").length;
       const checkoutFailures = orderedEvents.filter((event) => event.event_type === "checkout_failed").length;
@@ -242,6 +328,23 @@ export function buildSecuritySessions(events: BookingEvent[], matches: Match[], 
       );
       const primaryReason = getPrimaryReason(reasons);
       const matchId = latestEvent.match_id ? latestEvent.match_id : null;
+      const latestAiEvent = aiEvents.reduce<BookingEvent | null>((latest, event) => {
+        if (!latest) {
+          return event;
+        }
+
+        const latestTimestamp = new Date(getAiCheckedAt(latest)).getTime();
+        const currentTimestamp = new Date(getAiCheckedAt(event)).getTime();
+        return currentTimestamp >= latestTimestamp ? event : latest;
+      }, null);
+      const latestAiRiskLevel = latestAiEvent ? getAiRiskLevel(latestAiEvent) : null;
+      const latestAiConfidence = latestAiEvent ? getAiConfidence(latestAiEvent) : null;
+      const latestAiCheckedAt = latestAiEvent ? getAiCheckedAt(latestAiEvent) : null;
+      const latestAiStep = latestAiEvent ? getAiRiskStep(latestAiEvent) : null;
+      const latestRiskCheckStatus = latestAiEvent ? getAiRiskCheckStatus(latestAiEvent) : null;
+      const hasAiWarning = aiEvents.some((event) => getAiRiskLevel(event) === "warning");
+      const hasAiHigh = aiEvents.some((event) => getAiRiskLevel(event) === "high");
+      const aiCheckCount = aiEvents.length;
 
       return {
         id: rawSessionId,
@@ -266,6 +369,20 @@ export function buildSecuritySessions(events: BookingEvent[], matches: Match[], 
           selectedSeatsPeak,
           retryCount,
           currentDecision: status,
+          aiCheckCount,
+          hasAiWarning,
+          hasAiHigh,
+          latestRiskCheckStatus,
+        },
+        ai: {
+          latestAiRiskLevel,
+          latestAiConfidence,
+          latestAiCheckedAt,
+          latestAiStep,
+          latestRiskCheckStatus,
+          aiCheckCount,
+          hasAiWarning,
+          hasAiHigh,
         },
         events: orderedEvents.map((event) => ({
           id: event.id,
@@ -275,10 +392,21 @@ export function buildSecuritySessions(events: BookingEvent[], matches: Match[], 
           selectedCount: getSelectedCount(event),
           retryCount: getRetryCount(event),
           seatIds: getMetadataSeatIds(event),
+          riskLevel: event.event_type === "ai_risk_checked" ? getAiRiskLevel(event) : null,
+          confidence: event.event_type === "ai_risk_checked" ? getAiConfidence(event) : null,
+          checkedAt: event.event_type === "ai_risk_checked" ? getAiCheckedAt(event) : null,
+          step: event.event_type === "ai_risk_checked" ? getAiRiskStep(event) : null,
+          riskCheckStatus: event.event_type === "ai_risk_checked" ? getAiRiskCheckStatus(event) : null,
+          warningAccepted: event.event_type === "ai_risk_checked" ? getWarningAccepted(event) : false,
         })),
       } satisfies SecuritySession;
     })
     .sort((left, right) => {
+      const aiRiskDiff = getAiRiskRank(right.ai.latestAiRiskLevel) - getAiRiskRank(left.ai.latestAiRiskLevel);
+      if (aiRiskDiff !== 0) {
+        return aiRiskDiff;
+      }
+
       const riskRankDiff = getDecisionRank(right.decision) - getDecisionRank(left.decision);
       if (riskRankDiff !== 0) {
         return riskRankDiff;
@@ -324,6 +452,15 @@ export function summarizeSecurity(sessions: SecuritySession[]) {
   const avgRisk = monitored
     ? Math.round(sessions.reduce((sum, item) => sum + item.score, 0) / monitored)
     : 0;
+  const aiChecks = sessions.reduce((sum, item) => sum + item.ai.aiCheckCount, 0);
+  const aiLow = sessions.reduce((sum, item) => sum + item.events.filter((event) => event.riskLevel === "low").length, 0);
+  const aiWarning = sessions.reduce((sum, item) => sum + item.events.filter((event) => event.riskLevel === "warning").length, 0);
+  const aiHigh = sessions.reduce((sum, item) => sum + item.events.filter((event) => event.riskLevel === "high").length, 0);
+  const aiFailedOpen = sessions.reduce(
+    (sum, item) => sum + item.events.filter((event) => event.riskCheckStatus === "failed_open").length,
+    0,
+  );
+  const sessionsWithAiHigh = sessions.filter((item) => item.ai.hasAiHigh).length;
 
-  return { monitored, warned, blocked, avgRisk };
+  return { monitored, warned, blocked, avgRisk, aiChecks, aiLow, aiWarning, aiHigh, aiFailedOpen, sessionsWithAiHigh };
 }

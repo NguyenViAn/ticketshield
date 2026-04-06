@@ -28,6 +28,14 @@ function scoreTone(scoreLabel: SecurityScoreLabel) {
   return "red" as const;
 }
 
+function aiTone(level: SecuritySession["ai"]["latestAiRiskLevel"], status: SecuritySession["ai"]["latestRiskCheckStatus"]) {
+  if (status === "failed_open") return "neutral" as const;
+  if (level === "high") return "red" as const;
+  if (level === "warning") return "amber" as const;
+  if (level === "low") return "emerald" as const;
+  return "neutral" as const;
+}
+
 function DetailMetric({
   label,
   value,
@@ -113,12 +121,47 @@ export function SecuritySessionDetail({
                 <div className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-500">{session.scoreLabel}</div>
               </div>
             </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Rule-based decision</div>
+                <div className="mt-3 flex items-center gap-2">
+                  <StatusPill tone={decisionTone(session.decision)}>{session.status}</StatusPill>
+                  <StatusPill tone={scoreTone(session.scoreLabel)}>{session.scoreLabel}</StatusPill>
+                </div>
+                <div className="mt-3 text-sm leading-6 text-slate-300">{session.reason}</div>
+              </div>
+
+              <div className="rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Latest AI verdict</div>
+                <div className="mt-3 flex items-center gap-2">
+                  <StatusPill tone={aiTone(session.ai.latestAiRiskLevel, session.ai.latestRiskCheckStatus)}>
+                    {session.ai.latestRiskCheckStatus === "failed_open"
+                      ? "Failed open"
+                      : session.ai.latestAiRiskLevel ?? "No AI check"}
+                  </StatusPill>
+                  {session.ai.latestAiStep ? (
+                    <StatusPill tone="neutral">{session.ai.latestAiStep === "seat_page" ? "Seat page" : "Payment pre-check"}</StatusPill>
+                  ) : null}
+                </div>
+                <div className="mt-3 space-y-1 text-sm text-slate-300">
+                  <div>
+                    Confidence:{" "}
+                    {typeof session.ai.latestAiConfidence === "number"
+                      ? `${(session.ai.latestAiConfidence * 100).toFixed(1)}%`
+                      : "--"}
+                  </div>
+                  <div>Last checked: {session.ai.latestAiCheckedAt ? formatDate(session.ai.latestAiCheckedAt, locale) : "--"}</div>
+                  <div>Status: {session.ai.latestRiskCheckStatus ?? "--"}</div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-2">
             <DetailMetric label="Status" value={session.status} />
             <DetailMetric label="Score" value={session.scoreLabel} />
-            <DetailMetric label="Reason" value={session.reason} />
+            <DetailMetric label="AI Risk" value={session.ai.latestAiRiskLevel ?? "No AI check"} />
             <DetailMetric label="Total events" value={session.totalEvents} />
             <DetailMetric label="Checkout retries" value={session.checkoutRetries} />
             <DetailMetric label="Seats touched" value={session.seatsTouched} />
@@ -143,7 +186,7 @@ export function SecuritySessionDetail({
       <AdminPanel>
         <AdminPanelHeader
           title="Session Metrics"
-          description="Operational counters for explaining the current decision."
+          description="Operational counters for explaining rule-based and AI decisions."
           action={
             <StatusPill tone={decisionTone(session.decision)}>
               <Activity className="mr-1.5 h-3.5 w-3.5" />
@@ -156,6 +199,10 @@ export function SecuritySessionDetail({
           <DetailMetric label="Selected seats peak" value={session.metrics.selectedSeatsPeak} />
           <DetailMetric label="Retry count" value={session.metrics.retryCount} />
           <DetailMetric label="Current decision" value={session.metrics.currentDecision} />
+          <DetailMetric label="AI checks" value={session.metrics.aiCheckCount} />
+          <DetailMetric label="AI warning seen" value={session.metrics.hasAiWarning ? "Yes" : "No"} />
+          <DetailMetric label="AI high seen" value={session.metrics.hasAiHigh ? "Yes" : "No"} />
+          <DetailMetric label="Latest risk status" value={session.metrics.latestRiskCheckStatus ?? "--"} />
         </div>
       </AdminPanel>
     </div>

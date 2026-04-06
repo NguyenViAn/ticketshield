@@ -362,13 +362,13 @@ function PaymentContent() {
         sessionId,
       });
     } catch (err: unknown) {
-      console.error("Purchase error:", {
-        error: err,
+      const errorMessage = getReadableErrorMessage(err);
+      console.warn("Purchase failed:", {
+        message: errorMessage,
         matchId,
         seatIds,
         userId: user.id,
       });
-      const errorMessage = getReadableErrorMessage(err);
 
       await logBookingEvent(supabase, {
         eventType: "checkout_failed",

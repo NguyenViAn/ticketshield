@@ -35,6 +35,19 @@ function normalizeRiskLevel(value: unknown): RiskLevel {
   return "low";
 }
 
+function normalizeConfidence(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
 export async function requestServerRiskCheck(
   payload: SessionFeaturesPayload,
   timeoutMs = RISK_TIMEOUT_MS
@@ -63,7 +76,7 @@ export async function requestServerRiskCheck(
 
     return {
       riskLevel: normalizeRiskLevel(result?.riskLevel),
-      confidence: typeof result?.confidence === "number" ? result.confidence : null,
+      confidence: normalizeConfidence(result?.confidence),
       featuresUsed: Array.isArray(result?.featuresUsed) ? result.featuresUsed.map(String) : [],
       checkedAt,
     };

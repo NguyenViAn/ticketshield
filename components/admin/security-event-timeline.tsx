@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Bot,
   CheckCircle2,
   CreditCard,
   MinusCircle,
@@ -21,6 +22,23 @@ function formatDate(value: string, locale: string) {
 }
 
 function getEventMeta(event: SecurityTimelineEvent) {
+  if (event.type === "ai_risk_checked") {
+    return {
+      icon: Bot,
+      label: "AI risk checked",
+      tone:
+        event.riskCheckStatus === "failed_open"
+          ? ("neutral" as const)
+          : event.riskLevel === "high"
+            ? ("red" as const)
+            : event.riskLevel === "warning"
+              ? ("amber" as const)
+              : event.riskLevel === "low"
+                ? ("emerald" as const)
+                : ("neutral" as const),
+    };
+  }
+
   if (event.type === "seat_select") {
     return {
       icon: MousePointerClick,
@@ -103,25 +121,65 @@ export function SecurityEventTimeline({
                   <div className="text-sm font-semibold text-white">{meta.label}</div>
                   <div className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">{formatDate(event.createdAt, locale)}</div>
                 </div>
-                <StatusPill tone={meta.tone}>{event.selectedCount} selected</StatusPill>
+                <StatusPill tone={meta.tone}>
+                  {event.type === "ai_risk_checked"
+                    ? event.riskCheckStatus === "failed_open"
+                      ? "Failed open"
+                      : event.riskLevel ?? "AI checked"
+                    : `${event.selectedCount} selected`}
+                </StatusPill>
               </div>
 
               <div className="mt-4 grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
                 <div className="rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Seat count</div>
-                  <div className="mt-2 text-base font-semibold text-white">{event.seatCount}</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    {event.type === "ai_risk_checked" ? "Step" : "Seat count"}
+                  </div>
+                  <div className="mt-2 text-base font-semibold text-white">
+                    {event.type === "ai_risk_checked"
+                      ? event.step === "seat_page"
+                        ? "Seat page"
+                        : event.step === "payment_pre_checkout"
+                          ? "Payment pre-check"
+                          : "--"
+                      : event.seatCount}
+                  </div>
                 </div>
                 <div className="rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Retry count</div>
-                  <div className="mt-2 text-base font-semibold text-white">{event.retryCount}</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    {event.type === "ai_risk_checked" ? "Confidence" : "Retry count"}
+                  </div>
+                  <div className="mt-2 text-base font-semibold text-white">
+                    {event.type === "ai_risk_checked"
+                      ? typeof event.confidence === "number"
+                        ? `${(event.confidence * 100).toFixed(1)}%`
+                        : "--"
+                      : event.retryCount}
+                  </div>
                 </div>
                 <div className="rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Seats</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    {event.type === "ai_risk_checked" ? "Checked at" : "Seats"}
+                  </div>
                   <div className="mt-2 truncate text-base font-semibold text-white">
-                    {event.seatIds.length ? event.seatIds.join(", ") : "--"}
+                    {event.type === "ai_risk_checked"
+                      ? event.checkedAt
+                        ? formatDate(event.checkedAt, locale)
+                        : "--"
+                      : event.seatIds.length
+                        ? event.seatIds.join(", ")
+                        : "--"}
                   </div>
                 </div>
               </div>
+
+              {event.type === "ai_risk_checked" ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <StatusPill tone="neutral">Status: {event.riskCheckStatus ?? "--"}</StatusPill>
+                  <StatusPill tone="neutral">Warning accepted: {event.warningAccepted ? "Yes" : "No"}</StatusPill>
+                  {event.seatIds.length ? <StatusPill tone="neutral">Seats: {event.seatIds.length}</StatusPill> : null}
+                </div>
+              ) : null}
             </div>
           </div>
         );

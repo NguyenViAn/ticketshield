@@ -7,6 +7,13 @@ export type RiskCheckResponse = {
   checkedAt: string;
 };
 
+export class RiskCheckClientError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = "RiskCheckClientError";
+  }
+}
+
 export async function checkSessionRisk(
   payload: SessionFeaturesPayload
 ): Promise<RiskCheckResponse> {
@@ -19,8 +26,21 @@ export async function checkSessionRisk(
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Risk check failed: ${text}`);
+    let message = "Risk check failed.";
+
+    try {
+      const data = (await response.json()) as { error?: unknown };
+      if (typeof data?.error === "string" && data.error.trim().length > 0) {
+        message = data.error;
+      }
+    } catch {
+      const text = await response.text();
+      if (text.trim().length > 0) {
+        message = text;
+      }
+    }
+
+    throw new RiskCheckClientError(message, response.status);
   }
 
   return response.json();

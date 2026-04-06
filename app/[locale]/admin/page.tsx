@@ -70,25 +70,27 @@ export default function AdminDashboard() {
     () =>
       buildDailyTrend(
         sessions
-          .filter((session) => session.decision !== "allow")
+          .filter(
+            (session) =>
+              session.decision !== "allow" ||
+              session.ai.latestAiRiskLevel === "warning" ||
+              session.ai.latestAiRiskLevel === "high",
+          )
           .map((session) => session.timestamp),
       ),
     [sessions],
   );
   const suspiciousSessions = useMemo(
-    () => sessions.filter((session) => session.decision !== "allow"),
+    () =>
+      sessions.filter(
+        (session) =>
+          session.decision !== "allow" ||
+          session.ai.latestAiRiskLevel === "warning" ||
+          session.ai.latestAiRiskLevel === "high" ||
+          session.ai.latestRiskCheckStatus === "failed_open",
+      ),
     [sessions],
   );
-  const uniqueSignals = useMemo(
-    () =>
-      new Set(
-        suspiciousSessions.flatMap((session) =>
-          session.reasons.filter((reason) => reason !== "Stable selection pattern"),
-        ),
-      ).size,
-    [suspiciousSessions],
-  );
-
   const recentOrders = tickets.slice(0, 5);
   const topSuspiciousSessions = suspiciousSessions.slice(0, 6);
 
@@ -104,22 +106,22 @@ export default function AdminDashboard() {
         />
         <AdminMetricCard
           label="Suspicious Sessions"
-          value={String(securitySummary.warned + securitySummary.blocked)}
-          hint="Warnings and blocked sessions in the latest scan."
+          value={String(suspiciousSessions.length)}
+          hint="Sessions flagged by heuristic rules or the latest AI verdict."
           icon={AlertTriangle}
           accent="amber"
         />
         <AdminMetricCard
-          label="Checkout Restrictions"
-          value={String(securitySummary.blocked)}
-          hint="Sessions blocked by explicit anti-abuse rules."
+          label="AI High Verdicts"
+          value={String(securitySummary.aiHigh)}
+          hint="High-risk AI checks recorded across monitored sessions."
           icon={Ban}
           accent="red"
         />
         <AdminMetricCard
-          label="Active Security Signals"
-          value={String(uniqueSignals)}
-          hint="Distinct suspicious patterns observed right now."
+          label="AI Checks Logged"
+          value={String(securitySummary.aiChecks)}
+          hint="Seat-page and payment pre-check verdicts stored in booking_events."
           icon={Activity}
           accent="emerald"
         />
@@ -222,6 +224,9 @@ export default function AdminDashboard() {
                   <th className="px-5 py-4 sm:px-6">User</th>
                   <th className="px-5 py-4 sm:px-6">Risk</th>
                   <th className="px-5 py-4 sm:px-6">Decision</th>
+                  <th className="px-5 py-4 sm:px-6">AI Risk</th>
+                  <th className="px-5 py-4 sm:px-6">Confidence</th>
+                  <th className="px-5 py-4 sm:px-6">Last checked</th>
                   <th className="px-5 py-4 sm:px-6">Reason</th>
                 </tr>
               </thead>
@@ -229,7 +234,7 @@ export default function AdminDashboard() {
                 {bookingEventsLoading || matchesLoading ? (
                   Array.from({ length: 5 }).map((_, index) => (
                     <tr key={index} className="border-b border-white/6">
-                      <td className="px-5 py-4 sm:px-6" colSpan={5}>
+                      <td className="px-5 py-4 sm:px-6" colSpan={8}>
                         <div className="admin-skeleton h-12" />
                       </td>
                     </tr>
@@ -248,12 +253,35 @@ export default function AdminDashboard() {
                       <td className="px-5 py-4 sm:px-6">
                         <StatusPill tone={session.decision === "block" ? "red" : "amber"}>{session.status}</StatusPill>
                       </td>
+                      <td className="px-5 py-4 sm:px-6">
+                        <StatusPill
+                          tone={
+                            session.ai.latestAiRiskLevel === "high"
+                              ? "red"
+                              : session.ai.latestAiRiskLevel === "warning"
+                                ? "amber"
+                                : session.ai.latestAiRiskLevel === "low"
+                                  ? "emerald"
+                                  : "neutral"
+                          }
+                        >
+                          {session.ai.latestAiRiskLevel ?? "No AI check"}
+                        </StatusPill>
+                      </td>
+                      <td className="px-5 py-4 text-slate-300 sm:px-6">
+                        {typeof session.ai.latestAiConfidence === "number"
+                          ? `${(session.ai.latestAiConfidence * 100).toFixed(1)}%`
+                          : "--"}
+                      </td>
+                      <td className="px-5 py-4 text-slate-500 sm:px-6">
+                        {session.ai.latestAiCheckedAt ? formatDate(session.ai.latestAiCheckedAt) : "--"}
+                      </td>
                       <td className="px-5 py-4 text-slate-500 sm:px-6">{session.reason}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td className="px-5 py-12 text-center text-slate-500 sm:px-6" colSpan={5}>
+                    <td className="px-5 py-12 text-center text-slate-500 sm:px-6" colSpan={8}>
                       {t("empty_sessions")}
                     </td>
                   </tr>

@@ -17,7 +17,7 @@ import {
   recordClick,
   type SeatSessionState,
 } from "@/lib/ai/sessionFeatures";
-import { checkSessionRisk } from "@/lib/ai/riskClient";
+import { checkSessionRisk, RiskCheckClientError } from "@/lib/ai/riskClient";
 import { logAiRiskEvent } from "@/lib/services/booking-events";
 import { createClient } from "@/utils/supabase/client";
 import {
@@ -160,6 +160,14 @@ export function BookingWorkspace({
   const effectiveRiskScore: SessionRiskScore =
     aiRiskLevel === "high" ? "High" : aiRiskLevel === "warning" ? "Medium" : sessionRisk.score;
   const actionRiskNote = getRiskActionNote(effectiveRiskStatus);
+
+  const pushToPayment = () => {
+    const query = new URLSearchParams();
+    query.set("matchId", matchId);
+    query.set("sessionId", sessionState.sessionId);
+    sortedSelectedSeats.forEach((seatId) => query.append("seatId", seatId));
+    router.push(`/${locale}/payment?${query.toString()}`);
+  };
 
   useEffect(() => {
     if (sortedSelectedSeats.length === 0) {
@@ -385,12 +393,18 @@ export function BookingWorkspace({
         }
       }
 
-      const query = new URLSearchParams();
-      query.set("matchId", matchId);
-      query.set("sessionId", sessionState.sessionId);
-      sortedSelectedSeats.forEach((seatId) => query.append("seatId", seatId));
-      router.push(`/${locale}/payment?${query.toString()}`);
+      pushToPayment();
     } catch (error) {
+      if (
+        error instanceof RiskCheckClientError &&
+        error.status >= 500
+      ) {
+        console.warn("Risk preview unavailable, continuing to payment:", error.message);
+        window.alert("AI risk preview is temporarily unavailable. Risk will be checked again at payment.");
+        pushToPayment();
+        return;
+      }
+
       console.error("Risk check failed:", error);
       window.alert("Could not verify session risk. Please try again.");
     } finally {

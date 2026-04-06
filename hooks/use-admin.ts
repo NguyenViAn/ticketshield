@@ -43,7 +43,18 @@ function useAdminData<T>(fetcher: (supabase: ReturnType<typeof createClient>) =>
 }
 
 const defaultStats: AdminStats = { matchCount: 0, ticketCount: 0, totalRevenue: 0, blockedUserCount: 0 };
-const defaultSecuritySummary = { monitored: 0, warned: 0, blocked: 0, avgRisk: 0 };
+const defaultSecuritySummary = {
+  monitored: 0,
+  warned: 0,
+  blocked: 0,
+  avgRisk: 0,
+  aiChecks: 0,
+  aiLow: 0,
+  aiWarning: 0,
+  aiHigh: 0,
+  aiFailedOpen: 0,
+  sessionsWithAiHigh: 0,
+};
 const fetchAdminStatsData = (supabase: ReturnType<typeof createClient>) => fetchAdminStats(supabase);
 const fetchAdminMatchesData = (supabase: ReturnType<typeof createClient>) => fetchAllMatches(supabase);
 const fetchAdminTicketsData = (supabase: ReturnType<typeof createClient>) => fetchAllTickets(supabase);
