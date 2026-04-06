@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { buildSessionFeatures, createInitialSeatSessionState, parseSeatSessionState } from "@/lib/ai/sessionFeatures";
+import { logAiRiskEvent } from "@/lib/services/booking-events";
 import { RiskServiceError, requestServerRiskCheck } from "@/lib/ai/serverRisk";
 import { createClient } from "@/utils/supabase/server";
 import { areConcreteSeatIds, areSeatIdsUnique, MAX_BOOKING_SEATS, normalizeSeatIds } from "@/utils/tickets";
@@ -80,9 +81,11 @@ export async function POST(req: NextRequest) {
       | Awaited<ReturnType<typeof requestServerRiskCheck>>
       | null = null;
     let riskCheckStatus: "passed" | "failed_open" = "passed";
+    let checkedAt = new Date().toISOString();
 
     try {
       riskResult = await requestServerRiskCheck(features);
+      checkedAt = riskResult.checkedAt;
     } catch (error) {
       if (!(error instanceof RiskServiceError)) {
         throw error;
@@ -90,14 +93,29 @@ export async function POST(req: NextRequest) {
 
       console.warn("Secure checkout risk check failed open:", error.message);
       riskCheckStatus = "failed_open";
+      checkedAt = new Date().toISOString();
     }
+
+    await logAiRiskEvent(supabase, {
+      checkedAt,
+      confidence: riskResult?.confidence ?? null,
+      features,
+      matchId,
+      riskCheckStatus,
+      riskLevel: riskResult?.riskLevel,
+      seatCount: seatIds.length,
+      seatIds,
+      sessionId,
+      step: "payment_pre_checkout",
+      warningAccepted,
+    });
 
     if (riskResult?.riskLevel === "high") {
       return NextResponse.json({
         status: "blocked",
         riskLevel: riskResult.riskLevel,
         confidence: riskResult.confidence,
-        checkedAt: riskResult.checkedAt,
+        checkedAt,
         riskCheckStatus,
         message: "Suspicious booking behaviour detected. Checkout was blocked.",
       });
@@ -108,7 +126,7 @@ export async function POST(req: NextRequest) {
         status: "warning",
         riskLevel: riskResult.riskLevel,
         confidence: riskResult.confidence,
-        checkedAt: riskResult.checkedAt,
+        checkedAt,
         riskCheckStatus,
         message: "Your session looks unusual. Confirm to continue checkout.",
       });
@@ -133,7 +151,7 @@ export async function POST(req: NextRequest) {
       status: "success",
       riskLevel: riskResult?.riskLevel ?? "low",
       confidence: riskResult?.confidence ?? null,
-      checkedAt: riskResult?.checkedAt ?? new Date().toISOString(),
+      checkedAt,
       riskCheckStatus,
       bookingGroupId: checkoutResult.bookingGroupId ?? null,
       ticketIds: Array.isArray(checkoutResult.ticketIds)

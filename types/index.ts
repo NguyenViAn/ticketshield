@@ -1,3 +1,5 @@
+import type { SessionFeaturesPayload } from "@/lib/ai/sessionFeatures";
+
 export type SecurityLevel = "Standard" | "High" | "Maximum" | "Ultra";
 
 export interface Match {
@@ -84,7 +86,8 @@ export type BookingEventType =
     | "seat_deselect"
     | "checkout_attempt"
     | "checkout_success"
-    | "checkout_failed";
+    | "checkout_failed"
+    | "ai_risk_checked";
 
 export interface BookingEventMetadata {
     ipAddress?: string | null;
@@ -92,6 +95,14 @@ export interface BookingEventMetadata {
     seatIds?: string[];
     selectedCount?: number;
     timeSinceLastActionMs?: number | null;
+    riskLevel?: "low" | "warning" | "high";
+    confidence?: number | null;
+    checkedAt?: string;
+    step?: "seat_page" | "payment_pre_checkout";
+    riskCheckStatus?: "passed" | "failed_open";
+    features?: SessionFeaturesPayload;
+    sessionId?: string;
+    warningAccepted?: boolean;
 }
 
 export interface BookingEvent {

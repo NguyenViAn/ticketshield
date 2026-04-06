@@ -18,6 +18,8 @@ import {
   type SeatSessionState,
 } from "@/lib/ai/sessionFeatures";
 import { checkSessionRisk } from "@/lib/ai/riskClient";
+import { logAiRiskEvent } from "@/lib/services/booking-events";
+import { createClient } from "@/utils/supabase/client";
 import {
   getTierDefinition,
   getTierFromSeatId,
@@ -130,6 +132,7 @@ export function BookingWorkspace({
 }) {
   const locale = useLocale();
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
   const [activeTier, setActiveTier] = useState<TicketTierId | null>(null);
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [sessionTimer, setSessionTimer] = useState(SESSION_TIMER_SECONDS);
@@ -342,6 +345,19 @@ export function BookingWorkspace({
       const features = buildSessionFeatures(previewState);
       const result = await checkSessionRisk(features);
       const checkedAtMs = Date.parse(result.checkedAt);
+
+      await logAiRiskEvent(supabase, {
+        checkedAt: result.checkedAt,
+        confidence: result.confidence,
+        features,
+        matchId,
+        riskCheckStatus: "passed",
+        riskLevel: result.riskLevel,
+        seatCount: sortedSelectedSeats.length,
+        seatIds: sortedSelectedSeats,
+        sessionId: sessionState.sessionId,
+        step: "seat_page",
+      });
 
       setAiRiskLevel(result.riskLevel);
       setAiConfidence(result.confidence);

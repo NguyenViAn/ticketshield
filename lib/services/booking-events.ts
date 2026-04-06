@@ -1,3 +1,4 @@
+import type { SessionFeaturesPayload } from "@/lib/ai/sessionFeatures";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { BookingEventMetadata, BookingEventType } from "@/types";
@@ -63,4 +64,57 @@ export async function logBookingEvent(
   } catch (error) {
     console.warn("Booking event log failed:", error);
   }
+}
+
+export async function logAiRiskEvent(
+  supabase: SupabaseClient,
+  {
+    checkedAt,
+    confidence,
+    features,
+    matchId,
+    riskCheckStatus,
+    riskLevel,
+    seatCount,
+    seatIds,
+    sessionId,
+    step,
+    warningAccepted,
+  }: {
+    checkedAt: string;
+    confidence: number | null;
+    features: SessionFeaturesPayload;
+    matchId: string;
+    riskCheckStatus: "passed" | "failed_open";
+    riskLevel?: "low" | "warning" | "high";
+    seatCount: number;
+    seatIds: string[];
+    sessionId: string;
+    step: "seat_page" | "payment_pre_checkout";
+    warningAccepted?: boolean;
+  }
+) {
+  const metadata: BookingEventMetadata = {
+    checkedAt,
+    confidence,
+    features,
+    riskCheckStatus,
+    seatIds,
+    selectedCount: seatCount,
+    sessionId,
+    step,
+    warningAccepted,
+  };
+
+  if (riskLevel) {
+    metadata.riskLevel = riskLevel;
+  }
+
+  await logBookingEvent(supabase, {
+    eventType: "ai_risk_checked",
+    matchId,
+    metadata,
+    sessionId,
+    seatCount,
+  });
 }

@@ -58,7 +58,7 @@ CREATE TABLE public.booking_events (
     session_id TEXT NOT NULL,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     match_id UUID REFERENCES public.matches(id) ON DELETE CASCADE,
-    event_type TEXT NOT NULL CHECK (event_type IN ('seat_select', 'seat_deselect', 'checkout_attempt', 'checkout_success', 'checkout_failed')),
+    event_type TEXT NOT NULL CHECK (event_type IN ('seat_select', 'seat_deselect', 'checkout_attempt', 'checkout_success', 'checkout_failed', 'ai_risk_checked')),
     seat_count INTEGER NOT NULL DEFAULT 0,
     metadata JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
