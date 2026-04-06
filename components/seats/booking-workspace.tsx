@@ -10,6 +10,15 @@ import { useRouter } from "next/navigation";
 import { SeatMapRadial } from "@/components/seats/seat-map-radial";
 import { TicketTierList } from "@/components/seats/ticket-tier-list";
 import {
+  buildSessionFeatures,
+  createInitialSeatSessionState,
+  RISK_SESSION_ID_STORAGE_KEY,
+  RISK_STATE_STORAGE_KEY,
+  recordClick,
+  type SeatSessionState,
+} from "@/lib/ai/sessionFeatures";
+import { checkSessionRisk } from "@/lib/ai/riskClient";
+import {
   getTierDefinition,
   getTierFromSeatId,
   getSeatsTotalPrice,
@@ -86,6 +95,18 @@ function getRiskActionNote(status: SessionRiskStatus) {
   return null;
 }
 
+function formatLastChecked(timestamp: number | null) {
+  if (!timestamp) {
+    return "--";
+  }
+
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
 export function BookingWorkspace({
   awayTeam,
   basePrice,
@@ -115,6 +136,12 @@ export function BookingWorkspace({
   const [sessionRisk, setSessionRisk] = useState<SessionRiskState>(DEFAULT_RISK_STATE);
   const [interactionTimestamps, setInteractionTimestamps] = useState<number[]>([]);
   const [summaryNotice, setSummaryNotice] = useState<string | null>(null);
+  const [sessionState, setSessionState] = useState<SeatSessionState>(
+    createInitialSeatSessionState()
+  );
+  const [aiRiskLevel, setAiRiskLevel] = useState<"low" | "warning" | "high">("low");
+  const [aiConfidence, setAiConfidence] = useState<number | null>(null);
+  const [isCheckingRisk, setIsCheckingRisk] = useState(false);
 
   const sortedSelectedSeats = useMemo(() => sortSeatIds(selectedSeats), [selectedSeats]);
   const selectedTierDefinition = activeTier ? getTierDefinition(activeTier) : null;
@@ -125,7 +152,11 @@ export function BookingWorkspace({
   const seatListLabel = sortedSelectedSeats.length ? getSeatSelectionSummary(sortedSelectedSeats) : EMPTY_SEAT_LIST_LABEL;
   const totalAmountLabel = sortedSelectedSeats.length ? `${totalAmount.toLocaleString(locale)} VND` : EMPTY_TOTAL_LABEL;
   const ctaHelperText = getCtaHelperText(activeTier, sortedSelectedSeats.length);
-  const actionRiskNote = getRiskActionNote(sessionRisk.status);
+  const effectiveRiskStatus: SessionRiskStatus =
+    aiRiskLevel === "high" ? "Blocked" : aiRiskLevel === "warning" ? "Warning" : sessionRisk.status;
+  const effectiveRiskScore: SessionRiskScore =
+    aiRiskLevel === "high" ? "High" : aiRiskLevel === "warning" ? "Medium" : sessionRisk.score;
+  const actionRiskNote = getRiskActionNote(effectiveRiskStatus);
 
   useEffect(() => {
     if (sortedSelectedSeats.length === 0) {
@@ -153,6 +184,30 @@ export function BookingWorkspace({
     setSessionRisk(getNextRiskState(interactionTimestamps));
   }, [interactionTimestamps]);
 
+  useEffect(() => {
+    if (currentStep !== 3) {
+      return;
+    }
+
+    setSessionState((prev) =>
+      prev.reviewOpenedAt
+        ? prev
+        : {
+            ...prev,
+            reviewOpenedAt: Date.now(),
+          }
+    );
+  }, [currentStep]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.sessionStorage.setItem(RISK_SESSION_ID_STORAGE_KEY, sessionState.sessionId);
+    window.sessionStorage.setItem(RISK_STATE_STORAGE_KEY, JSON.stringify(sessionState));
+  }, [sessionState]);
+
   const handleChooseTier = (tierId: TicketTierId) => {
     if (activeTier === tierId) {
       return;
@@ -165,18 +220,85 @@ export function BookingWorkspace({
     setSessionRisk(DEFAULT_RISK_STATE);
     setSessionTimer(SESSION_TIMER_SECONDS);
     setSummaryNotice(hadSelection ? SECTION_RESET_NOTICE : null);
+    setAiRiskLevel("low");
+    setAiConfidence(null);
+    setSessionState((prev) => {
+      const next = recordClick(prev);
+
+      return {
+        ...next,
+        tierChangeCount: next.tierChangeCount + 1,
+        selectedSeatCount: 0,
+        reviewOpenedAt: null,
+        lastRiskLevel: null,
+        lastRiskConfidence: null,
+        lastRiskCheckedAt: null,
+      };
+    });
 
     document.getElementById("seat-map-step")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const handleSelectedSeatsChange = (nextSeats: string[]) => {
-    setSelectedSeats(sortSeatIds(nextSeats));
+    const nextSortedSeats = sortSeatIds(nextSeats);
+
+    setSelectedSeats(nextSortedSeats);
     setSessionTimer(SESSION_TIMER_SECONDS);
     setSummaryNotice(null);
+    setSessionState((prev) => {
+      if (nextSortedSeats.length > sortedSelectedSeats.length) {
+        const next = recordClick(prev);
+
+        return {
+          ...next,
+          seatSelectCount: next.seatSelectCount + 1,
+          selectedSeatCount: nextSortedSeats.length,
+          firstSeatSelectedAt: next.firstSeatSelectedAt ?? Date.now(),
+        };
+      }
+
+      if (nextSortedSeats.length < sortedSelectedSeats.length) {
+        const next = recordClick(prev);
+
+        return {
+          ...next,
+          seatDeselectCount: next.seatDeselectCount + 1,
+          seatChangeCount: next.seatChangeCount + 1,
+          selectedSeatCount: nextSortedSeats.length,
+        };
+      }
+
+      return {
+        ...prev,
+        selectedSeatCount: nextSortedSeats.length,
+      };
+    });
   };
 
   const handleSeatInteraction = () => {
     setInteractionTimestamps((currentTimestamps) => [...currentTimestamps, Date.now()].slice(-12));
+  };
+
+  const handleInvalidSeatClick = () => {
+    setSessionState((prev) => {
+      const next = recordClick(prev);
+
+      return {
+        ...next,
+        invalidSeatClickCount: next.invalidSeatClickCount + 1,
+      };
+    });
+  };
+
+  const handleCrossSectionAttempt = () => {
+    setSessionState((prev) => {
+      const next = recordClick(prev);
+
+      return {
+        ...next,
+        crossSectionAttemptCount: next.crossSectionAttemptCount + 1,
+      };
+    });
   };
 
   const handleClearSelection = () => {
@@ -185,6 +307,16 @@ export function BookingWorkspace({
     setSessionRisk(DEFAULT_RISK_STATE);
     setSessionTimer(SESSION_TIMER_SECONDS);
     setSummaryNotice(null);
+    setAiRiskLevel("low");
+    setAiConfidence(null);
+    setSessionState((prev) => ({
+      ...prev,
+      selectedSeatCount: 0,
+      reviewOpenedAt: null,
+      lastRiskLevel: null,
+      lastRiskConfidence: null,
+      lastRiskCheckedAt: null,
+    }));
   };
 
   const handleChooseAnotherSection = () => {
@@ -193,15 +325,61 @@ export function BookingWorkspace({
     document.getElementById("seat-tier-step")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const handleProceedToPayment = () => {
+  const handleProceedToPayment = async () => {
     if (!sortedSelectedSeats.length) {
       return;
     }
 
-    const query = new URLSearchParams();
-    query.set("matchId", matchId);
-    sortedSelectedSeats.forEach((seatId) => query.append("seatId", seatId));
-    router.push(`/${locale}/payment?${query.toString()}`);
+    try {
+      setIsCheckingRisk(true);
+
+      const previewState: SeatSessionState = {
+        ...sessionState,
+        reviewOpenedAt: sessionState.reviewOpenedAt ?? Date.now(),
+        selectedSeatCount: sortedSelectedSeats.length,
+      };
+
+      const features = buildSessionFeatures(previewState);
+      const result = await checkSessionRisk(features);
+      const checkedAtMs = Date.parse(result.checkedAt);
+
+      setAiRiskLevel(result.riskLevel);
+      setAiConfidence(result.confidence);
+      setSessionState((prev) => ({
+        ...prev,
+        reviewOpenedAt: previewState.reviewOpenedAt,
+        selectedSeatCount: sortedSelectedSeats.length,
+        lastRiskLevel: result.riskLevel,
+        lastRiskConfidence: result.confidence,
+        lastRiskCheckedAt: Number.isNaN(checkedAtMs) ? Date.now() : checkedAtMs,
+      }));
+
+      if (result.riskLevel === "high") {
+        window.alert("Suspicious booking behaviour detected. Please slow down and try again.");
+        return;
+      }
+
+      if (result.riskLevel === "warning") {
+        const proceed = window.confirm(
+          "Your session looks unusual. Do you still want to continue to payment?"
+        );
+
+        if (!proceed) {
+          return;
+        }
+      }
+
+      const query = new URLSearchParams();
+      query.set("matchId", matchId);
+      query.set("sessionId", sessionState.sessionId);
+      sortedSelectedSeats.forEach((seatId) => query.append("seatId", seatId));
+      router.push(`/${locale}/payment?${query.toString()}`);
+    } catch (error) {
+      console.error("Risk check failed:", error);
+      window.alert("Could not verify session risk. Please try again.");
+    } finally {
+      setIsCheckingRisk(false);
+    }
   };
 
   return (
@@ -300,6 +478,8 @@ export function BookingWorkspace({
             matchId={matchId}
             basePrice={basePrice}
             activeTier={activeTier}
+            onCrossSectionAttempt={handleCrossSectionAttempt}
+            onInvalidSeatClick={handleInvalidSeatClick}
             selectedSeats={sortedSelectedSeats}
             onSelectedSeatsChange={handleSelectedSeatsChange}
             onSeatInteraction={handleSeatInteraction}
@@ -368,13 +548,24 @@ export function BookingWorkspace({
           </PanelShell>
 
           <PanelShell title="Session Control">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Session Risk</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Rule-based Risk</div>
             <div className="mt-3">
-              <RiskStatusRow status={sessionRisk.status} score={sessionRisk.score} />
+              <RiskStatusRow status={effectiveRiskStatus} score={effectiveRiskScore} />
             </div>
             <div className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.03] p-4 text-sm text-slate-300">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Reason</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Heuristic Reason</div>
               <div className="mt-2">{sessionRisk.reason}</div>
+            </div>
+            <div className="mt-4 rounded-xl border border-white/8 p-3">
+              <p className="text-sm font-medium text-white">AI Risk</p>
+              <p className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-400">AI Status</p>
+              <p className="text-lg font-semibold uppercase text-white">{aiRiskLevel}</p>
+              <p className="text-xs text-slate-400">
+                Confidence: {aiConfidence !== null ? `${(aiConfidence * 100).toFixed(1)}%` : "--"}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Last checked: {formatLastChecked(sessionState.lastRiskCheckedAt)}
+              </p>
             </div>
             <p className="mt-4 text-sm leading-6 text-slate-400">
               Monitoring seat switching and checkout behaviour
@@ -403,10 +594,10 @@ export function BookingWorkspace({
             <button
               type="button"
               onClick={handleProceedToPayment}
-              disabled={!sortedSelectedSeats.length}
+              disabled={!sortedSelectedSeats.length || isCheckingRisk}
               className="inline-flex h-14 w-full items-center justify-center rounded-[18px] bg-emerald-500 px-5 text-sm font-black uppercase tracking-[0.18em] text-slate-950 transition-colors hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Proceed to Payment
+              {isCheckingRisk ? "Checking risk..." : "Proceed to Payment"}
             </button>
             <div className="mt-3 text-sm text-slate-400">{ctaHelperText}</div>
 
@@ -418,7 +609,7 @@ export function BookingWorkspace({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
                   className={`mt-3 rounded-[18px] border px-4 py-3 text-sm ${
-                    sessionRisk.status === "Blocked"
+                    effectiveRiskStatus === "Blocked"
                       ? "border-rose-400/18 bg-rose-400/10 text-rose-100"
                       : "border-amber-300/18 bg-amber-300/10 text-amber-100"
                   }`}

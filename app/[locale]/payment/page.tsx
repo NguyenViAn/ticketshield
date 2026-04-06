@@ -22,6 +22,13 @@ import {
   MatchdayPanelHeader,
   MatchdaySummaryBlock,
 } from "@/components/ui/matchday";
+import {
+  createInitialSeatSessionState,
+  parseSeatSessionState,
+  RISK_SESSION_ID_STORAGE_KEY,
+  RISK_STATE_STORAGE_KEY,
+  type SeatSessionState,
+} from "@/lib/ai/sessionFeatures";
 import { logBookingEvent } from "@/lib/services/booking-events";
 import { createClient } from "@/utils/supabase/client";
 import {
@@ -33,10 +40,16 @@ import {
   normalizeSeatIds,
 } from "@/utils/tickets";
 
-type CheckoutRpcResult = {
-  bookingGroupId?: string;
+type SecureCheckoutResponse = {
+  status: "success" | "warning" | "blocked";
+  riskLevel: "low" | "warning" | "high";
+  confidence: number | null;
+  checkedAt: string;
+  riskCheckStatus: "passed" | "failed_open";
+  bookingGroupId?: string | null;
   ticketIds?: string[];
-  totalPrice?: number;
+  totalPrice?: number | null;
+  message?: string | null;
 };
 
 function getReadableErrorMessage(error: unknown) {
@@ -95,11 +108,20 @@ function PaymentContent() {
   const [securePrice, setSecurePrice] = useState<number>(0);
   const [priceLoading, setPriceLoading] = useState(true);
   const [step, setStep] = useState(1);
-  const [anomalyTriggered, setAnomalyTriggered] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [issuedTicketIds, setIssuedTicketIds] = useState<string[]>([]);
   const [issuedBookingGroupId, setIssuedBookingGroupId] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [riskState, setRiskState] = useState<SeatSessionState | null>(null);
+  const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
+  const [securityModal, setSecurityModal] = useState<{
+    type: "warning" | "blocked";
+    message: string;
+    checkedAt: string | null;
+    confidence: number | null;
+    riskLevel: "warning" | "high";
+  } | null>(null);
   const [cardNumber, setCardNumber] = useState("");
   const [expDate, setExpDate] = useState("");
   const [cvc, setCvc] = useState("");
@@ -111,6 +133,50 @@ function PaymentContent() {
       router.push(loginUrl);
     }
   }, [authLoading, isLoggedIn, locale, router]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const querySessionId = searchParams.get("sessionId");
+    const storedSessionId = window.sessionStorage.getItem(RISK_SESSION_ID_STORAGE_KEY);
+    const activeSessionId = querySessionId || storedSessionId || createInitialSeatSessionState().sessionId;
+    const storedRiskStateRaw = window.sessionStorage.getItem(RISK_STATE_STORAGE_KEY);
+    let storedRiskState: SeatSessionState | null = null;
+
+    if (storedRiskStateRaw) {
+      try {
+        storedRiskState = parseSeatSessionState(JSON.parse(storedRiskStateRaw));
+      } catch (error) {
+        console.warn("Failed to parse stored risk state:", error);
+      }
+    }
+    const baseRiskState =
+      storedRiskState && storedRiskState.sessionId === activeSessionId
+        ? storedRiskState
+        : createInitialSeatSessionState(activeSessionId);
+    const nextRiskState: SeatSessionState = {
+      ...baseRiskState,
+      sessionId: activeSessionId,
+      selectedSeatCount: seatIds.length,
+      paymentPageOpenedAt: baseRiskState.paymentPageOpenedAt ?? Date.now(),
+    };
+
+    window.sessionStorage.setItem(RISK_SESSION_ID_STORAGE_KEY, activeSessionId);
+    window.sessionStorage.setItem(RISK_STATE_STORAGE_KEY, JSON.stringify(nextRiskState));
+    setSessionId(activeSessionId);
+    setRiskState(nextRiskState);
+  }, [searchParams, seatIds.length]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !riskState) {
+      return;
+    }
+
+    window.sessionStorage.setItem(RISK_SESSION_ID_STORAGE_KEY, riskState.sessionId);
+    window.sessionStorage.setItem(RISK_STATE_STORAGE_KEY, JSON.stringify(riskState));
+  }, [riskState]);
 
   useEffect(() => {
     const fetchBasePrice = async () => {
@@ -149,33 +215,50 @@ function PaymentContent() {
 
   const trustPoints = [
     "Maximum 4 active seats per user per match.",
-    "Checkout is validated atomically in the database.",
+    "Checkout is enforced through a server-side secure route.",
     "Risk score uses interaction events, not synthetic hashes.",
   ];
 
-  const handleNextStep = () => {
-    if (!hasValidSeatSelection) return;
+  const handleNextStep = async () => {
+    if (!hasValidSeatSelection) {
+      return;
+    }
 
     if (step === 2) {
       if (!cardNumber.trim() || !expDate.trim() || !cvc.trim() || !cardholder.trim()) {
         return;
       }
-      setAnomalyTriggered(true);
+
+      await submitSecureCheckout();
       return;
     }
 
     setStep((currentStep) => currentStep + 1);
   };
 
-  const verifyHuman = async () => {
-    if (!user || !matchId || !hasValidSeatSelection) {
-      alert(t("error_auth"));
+  const submitSecureCheckout = async (warningAccepted = false) => {
+    if (!user || !matchId || !hasValidSeatSelection || !sessionId) {
+      window.alert(t("error_auth"));
       return;
     }
 
     setIsProcessing(true);
+    setSecurityModal(null);
+    setCheckoutNotice(null);
     const nextRetryCount = retryCount + 1;
     setRetryCount(nextRetryCount);
+
+    const baseRiskState = riskState ?? createInitialSeatSessionState(sessionId);
+    const nextRiskState: SeatSessionState = {
+      ...baseRiskState,
+      sessionId,
+      selectedSeatCount: seatIds.length,
+      paymentPageOpenedAt: baseRiskState.paymentPageOpenedAt ?? Date.now(),
+      paymentClickedAt: Date.now(),
+      checkoutAttemptCount: baseRiskState.checkoutAttemptCount + 1,
+    };
+
+    setRiskState(nextRiskState);
 
     await logBookingEvent(supabase, {
       eventType: "checkout_attempt",
@@ -186,27 +269,85 @@ function PaymentContent() {
         selectedCount: seatIds.length,
       },
       seatCount: seatIds.length,
+      sessionId,
     });
 
     try {
-      const { data, error } = await supabase.rpc("checkout_booking", {
-        match_uuid: matchId,
-        seat_ids: seatIds,
+      const response = await fetch("/api/secure-checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          matchId,
+          seatIds,
+          sessionId,
+          warningAccepted,
+          riskState: nextRiskState,
+        }),
       });
 
-      if (error) {
-        throw error;
+      const result = (await response.json()) as SecureCheckoutResponse | { error?: string };
+
+      if (!response.ok) {
+        throw new Error("error" in result && result.error ? result.error : "Secure checkout failed.");
       }
 
-      const checkoutResult = (data ?? {}) as CheckoutRpcResult;
-      const nextTicketIds = Array.isArray(checkoutResult.ticketIds)
-        ? checkoutResult.ticketIds.map((ticketId) => String(ticketId))
-        : [];
+      if (!("status" in result)) {
+        throw new Error("Unexpected secure checkout response.");
+      }
+
+      const checkedAtMs = Date.parse(result.checkedAt);
+      const syncedRiskState: SeatSessionState = {
+        ...nextRiskState,
+        lastRiskLevel: result.riskLevel,
+        lastRiskConfidence: result.confidence,
+        lastRiskCheckedAt: Number.isNaN(checkedAtMs) ? Date.now() : checkedAtMs,
+      };
+
+      setRiskState(syncedRiskState);
+
+      if (result.status === "warning") {
+        setSecurityModal({
+          type: "warning",
+          message: result.message ?? "Your session looks unusual. Confirm to continue checkout.",
+          checkedAt: result.checkedAt,
+          confidence: result.confidence,
+          riskLevel: "warning",
+        });
+        return;
+      }
+
+      if (result.status === "blocked") {
+        setSecurityModal({
+          type: "blocked",
+          message: result.message ?? "Suspicious booking behaviour detected. Checkout was blocked.",
+          checkedAt: result.checkedAt,
+          confidence: result.confidence,
+          riskLevel: "high",
+        });
+
+        await logBookingEvent(supabase, {
+          eventType: "checkout_failed",
+          matchId,
+          metadata: {
+            retryCount: nextRetryCount,
+            seatIds,
+            selectedCount: seatIds.length,
+          },
+          seatCount: seatIds.length,
+          sessionId,
+        });
+        return;
+      }
+
+      const nextTicketIds = Array.isArray(result.ticketIds) ? result.ticketIds.map(String) : [];
 
       setIssuedTicketIds(nextTicketIds);
-      setIssuedBookingGroupId(checkoutResult.bookingGroupId ?? null);
-      setSecurePrice(checkoutResult.totalPrice ?? securePrice);
-      setAnomalyTriggered(false);
+      setIssuedBookingGroupId(result.bookingGroupId ?? null);
+      setSecurePrice(result.totalPrice ?? securePrice);
+      setSecurityModal(null);
+      setCheckoutNotice(result.riskCheckStatus === "failed_open" ? result.message ?? null : null);
       setStep(3);
 
       await logBookingEvent(supabase, {
@@ -218,6 +359,7 @@ function PaymentContent() {
           selectedCount: seatIds.length,
         },
         seatCount: seatIds.length,
+        sessionId,
       });
     } catch (err: unknown) {
       console.error("Purchase error:", {
@@ -237,10 +379,10 @@ function PaymentContent() {
           selectedCount: seatIds.length,
         },
         seatCount: seatIds.length,
+        sessionId,
       });
 
-      alert(t("error_transaction") + errorMessage);
-      setAnomalyTriggered(false);
+      window.alert(t("error_transaction") + errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -318,7 +460,7 @@ function PaymentContent() {
                       />
 
                       <div className="grid gap-4 sm:grid-cols-2">
-                        <MatchdaySummaryBlock label={t("session_id")} value={matchId || "TICKETSHIELD DEMO"} mono />
+                        <MatchdaySummaryBlock label={t("session_id")} value={sessionId || "TICKETSHIELD DEMO"} mono />
                         <MatchdaySummaryBlock
                           label="Selected seats"
                           value={hasValidSeatSelection ? getSeatSelectionSummary(seatIds) : t("not_selected")}
@@ -389,8 +531,8 @@ function PaymentContent() {
                         <button className="text-sm font-medium text-slate-400 transition-colors hover:text-white" onClick={() => setStep(1)}>
                           {t("btn_back")}
                         </button>
-                        <NeonButton onClick={handleNextStep} disabled={!hasValidSeatSelection} className="rounded-[18px] px-5 text-xs uppercase tracking-[0.18em]">
-                          {t("btn_pay")}
+                        <NeonButton onClick={handleNextStep} disabled={!hasValidSeatSelection || isProcessing} className="rounded-[18px] px-5 text-xs uppercase tracking-[0.18em]">
+                          {isProcessing ? t("btn_verifying") : t("btn_pay")}
                         </NeonButton>
                       </div>
                     </motion.div>
@@ -413,6 +555,11 @@ function PaymentContent() {
                         <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-300">
                           {t("success_desc")}
                         </p>
+                        {checkoutNotice ? (
+                          <div className="mx-auto mt-5 max-w-xl rounded-[20px] border border-amber-300/18 bg-amber-300/10 px-4 py-4 text-sm text-amber-100">
+                            {checkoutNotice}
+                          </div>
+                        ) : null}
                         <div className="mt-5 text-sm uppercase tracking-[0.24em] text-slate-400">
                           Booking group: #{issuedBookingGroupId?.slice(0, 8).toUpperCase() || "TS-DEMO"}
                         </div>
@@ -473,6 +620,22 @@ function PaymentContent() {
                     emphasis={!priceLoading && hasValidSeatSelection}
                   />
                 </div>
+                <div className="mt-4 rounded-[20px] border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-300">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">AI Checkout Status</div>
+                  <div className="mt-2 text-base font-semibold uppercase text-white">
+                    {riskState?.lastRiskLevel ?? "pending"}
+                  </div>
+                  <div className="mt-2 text-xs text-slate-400">
+                    Confidence: {riskState?.lastRiskConfidence !== null && riskState?.lastRiskConfidence !== undefined
+                      ? `${(riskState.lastRiskConfidence * 100).toFixed(1)}%`
+                      : "--"}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-400">
+                    Last checked: {riskState?.lastRiskCheckedAt
+                      ? new Date(riskState.lastRiskCheckedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                      : "--"}
+                  </div>
+                </div>
               </MatchdayPanel>
 
               <MatchdayPanel padding="p-5">
@@ -491,7 +654,7 @@ function PaymentContent() {
       </div>
 
       <AnimatePresence>
-        {anomalyTriggered ? (
+        {securityModal ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -509,33 +672,49 @@ function PaymentContent() {
                   <ShieldAlert className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-heading font-black text-white">{t("anomaly_title")}</h3>
-                  <p className="mt-1 text-sm leading-6 text-slate-300">{t("anomaly_desc")}</p>
+                  <h3 className="text-xl font-heading font-black text-white">
+                    {securityModal.type === "warning" ? "AI Warning" : "AI Blocked Checkout"}
+                  </h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-300">
+                    {securityModal.type === "warning"
+                      ? "The server-side AI check flagged this session as unusual."
+                      : "The server-side AI check blocked this checkout attempt."}
+                  </p>
                 </div>
               </div>
 
               <div className="mt-5 rounded-[20px] border border-rose-400/14 bg-rose-400/10 px-4 py-4 text-sm leading-6 text-slate-200">
-                <p>{t("anomaly_notice")}</p>
-                <p className="mt-2 font-semibold text-rose-200">{t("anomaly_action")}</p>
+                <p>{securityModal.message}</p>
+                <p className="mt-2 font-semibold text-rose-200">
+                  Risk level: {securityModal.riskLevel.toUpperCase()}
+                  {securityModal.confidence !== null ? ` | Confidence ${(securityModal.confidence * 100).toFixed(1)}%` : ""}
+                </p>
+                <p className="mt-2 text-xs text-slate-300">
+                  Last checked: {securityModal.checkedAt
+                    ? new Date(securityModal.checkedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                    : "--"}
+                </p>
               </div>
 
               <div className="mt-6 flex flex-col gap-3">
-                <button
-                  onClick={verifyHuman}
-                  disabled={isProcessing}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-[18px] bg-rose-500 px-5 text-sm font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-rose-400 disabled:opacity-50"
-                >
-                  {isProcessing ? (
-                    <span>{t("btn_verifying")}</span>
-                  ) : (
-                    <>
-                      <ScanLine className="h-4 w-4" />
-                      {t("btn_verify")}
-                    </>
-                  )}
-                </button>
-                <button onClick={() => setAnomalyTriggered(false)} className="text-sm font-medium text-slate-300 transition-colors hover:text-white">
-                  {t("btn_cancel")}
+                {securityModal.type === "warning" ? (
+                  <button
+                    onClick={() => void submitSecureCheckout(true)}
+                    disabled={isProcessing}
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-[18px] bg-rose-500 px-5 text-sm font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-rose-400 disabled:opacity-50"
+                  >
+                    {isProcessing ? (
+                      <span>{t("btn_verifying")}</span>
+                    ) : (
+                      <>
+                        <ScanLine className="h-4 w-4" />
+                        Continue Anyway
+                      </>
+                    )}
+                  </button>
+                ) : null}
+                <button onClick={() => setSecurityModal(null)} className="text-sm font-medium text-slate-300 transition-colors hover:text-white">
+                  {securityModal.type === "warning" ? t("btn_cancel") : "Close"}
                 </button>
               </div>
             </motion.div>

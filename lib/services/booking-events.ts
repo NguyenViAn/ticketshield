@@ -33,11 +33,13 @@ export async function logBookingEvent(
     eventType,
     matchId,
     metadata,
+    sessionId,
     seatCount,
   }: {
     eventType: BookingEventType;
     matchId: string;
     metadata?: BookingEventMetadata;
+    sessionId?: string;
     seatCount: number;
   },
 ) {
@@ -51,7 +53,7 @@ export async function logBookingEvent(
       match_id: matchId,
       metadata: metadata ?? null,
       seat_count: seatCount,
-      session_id: getBookingSessionId(),
+      session_id: sessionId ?? getBookingSessionId(),
       user_id: user?.id ?? null,
     });
 

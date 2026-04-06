@@ -12,6 +12,8 @@ export interface SeatMapRadialProps {
   activeTier: TicketTierId | null;
   matchId?: string;
   basePrice?: number;
+  onCrossSectionAttempt?: () => void;
+  onInvalidSeatClick?: () => void;
   onSeatInteraction: (seatId: string) => void;
   onSelectedSeatsChange: (seatIds: string[]) => void;
   selectedSeats: string[];
@@ -126,6 +128,8 @@ export function SeatMapRadial({
   activeTier,
   matchId,
   basePrice = 2500000,
+  onCrossSectionAttempt,
+  onInvalidSeatClick,
   onSeatInteraction,
   onSelectedSeatsChange,
   selectedSeats,
@@ -198,10 +202,12 @@ export function SeatMapRadial({
 
   const handleSeatClick = (seatId: string, zoneId: TicketTierId, isTaken: boolean) => {
     if (isInactive || isTaken) {
+      onInvalidSeatClick?.();
       return;
     }
 
     if (zoneId !== activeTier) {
+      onCrossSectionAttempt?.();
       setFeedbackMessage("Select seats in the chosen section only.");
       return;
     }
@@ -214,6 +220,7 @@ export function SeatMapRadial({
     }
 
     if (selectedSeats.length >= MAX_BOOKING_SEATS) {
+      onInvalidSeatClick?.();
       setFeedbackMessage(`Maximum ${MAX_BOOKING_SEATS} seats per booking.`);
       return;
     }
