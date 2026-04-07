@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { type MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Info, MapPinned } from "lucide-react";
+import { AlertCircle, Info, Lock, MapPinned } from "lucide-react";
 import { useLocale } from "next-intl";
 
 import { createClient } from "@/utils/supabase/client";
@@ -382,19 +382,45 @@ export function SeatMapRadial({
               </g>
             </svg>
 
+            {/* Selected seats counter overlay */}
+            {!isInactive && selectedSeats.length > 0 ? (
+              <motion.div
+                key={selectedSeats.length}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="absolute right-4 top-4 z-10 flex items-center gap-2 rounded-full border border-emerald-400/24 bg-emerald-950/90 px-4 py-2 shadow-[0_12px_28px_-12px_rgba(16,185,129,0.4)] backdrop-blur-sm"
+              >
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.6)]" />
+                <span className="text-sm font-black text-emerald-200">
+                  {selectedSeats.length}/{MAX_BOOKING_SEATS}
+                </span>
+                <span className="text-xs text-emerald-300/60">selected</span>
+              </motion.div>
+            ) : null}
+
             {isInactive ? (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/46 backdrop-blur-[1px]">
-                <div className="mx-6 max-w-sm rounded-[22px] border border-emerald-400/16 bg-slate-950/88 px-5 py-5 text-center shadow-[0_24px_60px_-36px_rgba(0,0,0,0.72)]">
-                  <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-400/14 bg-emerald-400/10 text-emerald-300">
-                    <Info className="h-5 w-5" />
-                  </div>
-                  <div className="mt-4 text-sm font-semibold uppercase tracking-[0.18em] text-emerald-200">
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/52 backdrop-blur-[2px]">
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35 }}
+                  className="mx-6 max-w-sm rounded-[26px] border border-emerald-400/16 bg-[linear-gradient(180deg,rgba(8,25,20,0.96),rgba(5,15,12,0.98))] px-6 py-6 text-center shadow-[0_28px_70px_-36px_rgba(0,0,0,0.8)]"
+                >
+                  <motion.div
+                    animate={{ scale: [1, 1.08, 1] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-400/18 bg-emerald-400/12 text-emerald-300 shadow-[0_0_30px_-8px_rgba(16,185,129,0.35)]"
+                  >
+                    <Lock className="h-6 w-6" />
+                  </motion.div>
+                  <div className="mt-5 text-base font-black uppercase tracking-[0.14em] text-emerald-200">
                     Seat selection locked
                   </div>
                   <div className="mt-2 text-sm leading-6 text-slate-300">
-                    Choose a ticket tier to unlock seat selection.
+                    Choose a ticket tier above to unlock the seat map.
                   </div>
-                </div>
+                  <div className="mx-auto mt-4 h-px w-16 bg-emerald-400/20" />
+                </motion.div>
               </div>
             ) : null}
           </div>

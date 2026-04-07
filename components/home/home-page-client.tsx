@@ -6,13 +6,19 @@ import {
   Activity,
   AlertTriangle,
   ArrowRight,
-  CalendarRange,
   CheckCircle2,
   Lock,
-  QrCode,
   Shield,
   ShieldCheck,
   Ticket,
+  XCircle,
+  Eye,
+  Zap,
+  BarChart3,
+  Users,
+  Bot,
+  CreditCard,
+  Wifi,
 } from "lucide-react";
 
 import { Link } from "@/i18n/routing";
@@ -35,86 +41,117 @@ const HERO_STADIUM_IMAGE =
   "https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?auto=format&fit=crop&w=1800&q=80";
 
 const copy = {
-  heroEyebrow: "ASM Computing Project Demo",
-  heroTitle: "Detecting Suspicious Ticket Behavior",
+  heroEyebrow: "AI-Protected Ticketing",
+  heroTitle: "Stop Suspicious Booking Behavior ",
+  heroTitleAccent: "Before",
+  heroTitleEnd: " Seats Are Lost",
   heroDescription:
-    "TicketShield is a football ticketing prototype focused on seat-selection spam, checkout abuse, and session anomalies. A lightweight AI risk engine evaluates behavior before ticket confirmation.",
-  primaryCta: "Start Demo",
-  secondaryCta: "View Detection Flow",
-  heroPanelTitle: "Security Monitoring Preview",
-  heroPanelDescription: "Prototype output from the AI-assisted risk engine before ticket confirmation.",
-  heroMetrics: [
-    { label: "Risk Engine", value: "Active", tone: "text-emerald-300" },
-    { label: "Risk Score", value: "0.82", tone: "text-amber-300" },
-    { label: "Decision", value: "Warn", tone: "text-amber-300" },
-  ],
-  heroSignals: ["Rapid seat switching", "Repeated checkout attempts", "Session anomaly"],
-  securityEyebrow: "Core capability",
-  securityTitle: "AI Monitors User Behavior",
-  securityDescription:
-    "The core feature of TicketShield is behavior-based detection for suspicious activity during seat selection and checkout. The model reviews interaction timing, repeated actions, and session anomalies to support intervention decisions.",
-  securityCards: [
+    "TicketShield uses real-time AI and behavioral analysis to identify suspicious checkout abuse and seat-hoarding before they impact your legitimate customers.",
+  primaryCta: "Explore All Tickets Here",
+  secondaryCta: "Watch All Sessions",
+  liveStatus: [
     {
-      title: "Seat-selection spam",
-      description: "Detects unusually rapid switching between seats and repeated seat holds.",
+      label: "Live In Queue",
+      value: "23 Users",
+      status: "ONLINE" as const,
     },
     {
-      title: "Checkout abuse",
-      description: "Tracks repeated confirmation attempts and suspicious retry patterns.",
+      label: "Active Bot Rules",
+      value: "81 Rules",
+      status: "BLOCKED" as const,
     },
     {
-      title: "Session anomalies",
-      description: "Flags inconsistent navigation timing and abnormal interaction sequences.",
+      label: "Seats Paid For Entry",
+      value: "ANALYZE",
+      status: "VERIFIED" as const,
     },
     {
-      title: "Admin review support",
-      description: "Provides risk evidence for warning, blocking, and demo-oriented review.",
+      label: "Security VPN Detected",
+      value: "ACTIVE",
+      status: "ALERT" as const,
     },
   ],
   statsEyebrow: "Security metrics",
   statsTitle: "Monitoring Summary",
-  statsDescription: "Security-focused metrics that frame TicketShield as an anti-bot prototype.",
+  statsDescription: "A compact view of the protected booking activity TicketShield is designed to monitor.",
+  heroPanelTitle: "Before vs After TicketShield",
+  heroPanelDescription: "See how AI protection changes the booking flow from reactive cleanup to proactive prevention.",
+  beforeItems: [
+    {
+      icon: "search" as const,
+      title: "Seat Switching Spam",
+      description: "Bots can switch seat positions quickly, creating noise and claims.",
+    },
+    {
+      icon: "retry" as const,
+      title: "Checkout Retry Abuse",
+      description: "Bots try payment attempts starting abuse sessions.",
+    },
+    {
+      icon: "session" as const,
+      title: "Suspicious Sessions",
+      description: "Minimal tools are available to review user risk before tickets.",
+    },
+  ],
+  afterItems: [
+    {
+      icon: "prevention" as const,
+      title: "Instant Loss Prevention",
+      description: "AI detects abnormal seat-switching pattern and blocks in real-time.",
+    },
+    {
+      icon: "throttling" as const,
+      title: "Dynamic Throttling",
+      description: "Graduated responses stop bad actors while letting real fans proceed.",
+    },
+    {
+      icon: "visibility" as const,
+      title: "Full Admin Visibility",
+      description: "Crystal clear dashboard for every suspicious alert and action.",
+    },
+  ],
+  securityEyebrow: "Core capability",
+  securityTitle: "AI Monitors Booking Risk In Real Time",
+  securityDescription:
+    "Our engine evaluates hundreds of signals per session to ensure every seat goes to a real person, in real time.",
+  securityCards: [
+    {
+      title: "Seat-selection spam",
+      description: "Prevents fans from holding over seats by monitoring rapid-click seat-switching behaviors to the millisecond.",
+    },
+    {
+      title: "Checkout abuse",
+      description: "Get effective insight-powered those retries, payment re-flow pattern recognition in fast checkout situations.",
+    },
+    {
+      title: "Session anomalies",
+      description: "Monitors high-frequency navigation anomalies, session fingerprint and timing abnormalities.",
+    },
+    {
+      title: "Admin review support",
+      description: "Rich audit trail with risk scores, rule-level reasons for each session that needed manual/medium resolution.",
+    },
+  ],
   detectionEyebrow: "Decision pipeline",
   detectionTitle: "Detection Flow",
-  detectionDescription: "TicketShield converts suspicious behavior into a risk score and a response.",
+  detectionDescription: "TicketShield turns behavior signals into a score and a response before risky sessions complete checkout.",
   detectionFlow: [
     {
       title: "Detect abnormal behavior",
-      description: "Observe seat-selection velocity, checkout repetition, and session inconsistency.",
+      description: "Real-time monitoring of user action like seat switching, checkout repetition, and inconsistent session behavior.",
     },
     {
       title: "Assign risk score",
-      description: "Aggregate behavior signals into a lightweight model score for each session.",
+      description: "AI combines signals to calculate the session risk confidence driven score.",
     },
     {
       title: "Warn or block user",
-      description: "Support a graduated response before suspicious sessions confirm tickets.",
-    },
-  ],
-  howEyebrow: "System walkthrough",
-  howTitle: "How It Works",
-  howDescription: "A short flow that is easy to explain during presentation and report defense.",
-  howSteps: [
-    {
-      title: "Choose a football event",
-      description: "The user opens a protected event and enters the booking flow.",
-    },
-    {
-      title: "Select seats",
-      description: "TicketShield monitors seat-selection patterns and interaction speed.",
-    },
-    {
-      title: "Risk evaluation before ticket confirmation",
-      description: "The AI model assigns a risk score before the session completes checkout.",
-    },
-    {
-      title: "Issue or stop confirmation",
-      description: "Low-risk sessions continue, while suspicious ones are warned or blocked.",
+      description: "Graduated intelligent response is on for the suspicious sessions to confirm high-risk bookings.",
     },
   ],
   eventsEyebrow: "Protected catalogue",
   eventsTitle: "Protected Ticket Events",
-  eventsDescription: "Example football events available inside the secured TicketShield prototype.",
+  eventsDescription: "Live-events protected for wider reaching events covering leagues globally.",
   emptyMatchesTitle: "Protected events are updating",
   emptyMatchesDescription: "Add fixtures to the database to demonstrate the secured booking flow.",
   viewAll: "View all events",
@@ -156,7 +193,6 @@ type HomePageClientProps = {
 
 const securityIcons: SectionIcon[] = [Ticket, Lock, Activity, ShieldCheck];
 const detectionIcons: SectionIcon[] = [Activity, Shield, AlertTriangle];
-const howIcons: SectionIcon[] = [CalendarRange, Ticket, ShieldCheck, QrCode];
 
 export default function HomePageClient({
   initialFeaturedMatches,
@@ -182,7 +218,7 @@ export default function HomePageClient({
       icon: Activity,
     },
     {
-      label: "Suspicious events detected",
+      label: "Suspicious events",
       value: suspiciousEvents,
       suffix: "+",
       detail: "Flagged patterns linked to seat spam, retry abuse, and session anomalies.",
@@ -209,10 +245,6 @@ export default function HomePageClient({
   const detectionFlow: InfoItem[] = copy.detectionFlow.map((item, index) => ({
     ...item,
     icon: detectionIcons[index] ?? Shield,
-  }));
-  const howSteps: InfoItem[] = copy.howSteps.map((item, index) => ({
-    ...item,
-    icon: howIcons[index] ?? CheckCircle2,
   }));
 
   React.useEffect(() => {
@@ -262,6 +294,7 @@ export default function HomePageClient({
       <main className="page-premium relative overflow-hidden pb-20">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_82%_8%,rgba(14,165,233,0.05),transparent_16%),radial-gradient(circle_at_16%_26%,rgba(16,185,129,0.08),transparent_18%)]" />
 
+        {/* ─── HERO SECTION ─── */}
         <section className="border-b border-white/10 pt-4 sm:pt-6 lg:pt-8">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="relative overflow-hidden rounded-[36px] border border-white/10 px-5 py-8 shadow-[0_28px_80px_-44px_rgba(0,0,0,0.5)] sm:px-8 sm:py-12 lg:rounded-[40px] lg:px-10 lg:py-14 xl:px-12 xl:py-16">
@@ -275,7 +308,8 @@ export default function HomePageClient({
               <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(2,6,23,0.86),rgba(2,6,23,0.72)_38%,rgba(2,6,23,0.46)_70%,rgba(2,6,23,0.24)_100%)]" />
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,27,49,0.16)_0%,rgba(17,27,49,0.34)_28%,rgba(17,27,49,0.58)_68%,#111b31_100%)]" />
 
-              <div className="relative z-10 grid gap-8 xl:grid-cols-[minmax(0,1.06fr)_minmax(22rem,0.94fr)] xl:items-end xl:gap-10">
+              <div className="relative z-10 grid gap-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)] xl:items-end xl:gap-10">
+                {/* Left — Hero Copy */}
                 <motion.div
                   initial="hidden"
                   animate="show"
@@ -288,6 +322,8 @@ export default function HomePageClient({
                   </motion.div>
                   <motion.h1 variants={sectionVariants} className="mt-5 max-w-[38rem] text-balance text-4xl font-black leading-[0.94] tracking-tight text-white sm:text-5xl lg:text-6xl">
                     {copy.heroTitle}
+                    <span className="text-emerald-400">{copy.heroTitleAccent}</span>
+                    {copy.heroTitleEnd}
                   </motion.h1>
                   <motion.p variants={sectionVariants} className="mt-5 max-w-[38rem] text-sm leading-7 text-slate-300 sm:text-base">
                     {copy.heroDescription}
@@ -302,43 +338,35 @@ export default function HomePageClient({
                   </motion.div>
                 </motion.div>
 
+                {/* Right — Live Status Panel */}
                 <motion.aside
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: 0.12 }}
                   className="rounded-[30px] border border-white/12 bg-slate-800/42 p-5 shadow-[0_22px_52px_-34px_rgba(0,0,0,0.4)] backdrop-blur-2xl sm:p-6"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-sm font-semibold uppercase tracking-[0.18em] text-white">{copy.heroPanelTitle}</div>
-                      <div className="mt-2 text-sm leading-6 text-slate-400">{copy.heroPanelDescription}</div>
-                    </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="text-sm font-semibold uppercase tracking-[0.18em] text-white">Live Status</div>
                     <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300">
-                      <Shield className="h-5 w-5" />
+                      <Activity className="h-5 w-5" />
                     </span>
                   </div>
 
-                  <div className="mt-6 space-y-3">
-                    {copy.heroMetrics.map((metric) => (
-                      <div key={metric.label} className="flex items-center justify-between rounded-[20px] border border-white/10 bg-white/5 px-4 py-3">
-                        <span className="text-sm text-slate-400">{metric.label}</span>
-                        <span className={`text-sm font-semibold ${metric.tone}`}>{metric.value}</span>
-                      </div>
+                  <div className="mt-5 space-y-3">
+                    {copy.liveStatus.map((item) => (
+                      <LiveStatusRow key={item.label} label={item.label} value={item.value} status={item.status} />
                     ))}
                   </div>
 
-                  <div className="mt-6 border-t border-white/10 pt-5">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                      <Activity className="h-4 w-4 text-emerald-300" />
-                      Active signals
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {copy.heroSignals.map((signal) => (
-                        <span key={signal} className="rounded-full border border-white/10 bg-slate-900/80 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
-                          {signal}
-                        </span>
-                      ))}
-                    </div>
+                  <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-white/10 pt-5">
+                    {["Pre-confirmation scoring", "Behavior-based review", "Admin decision support"].map((item) => (
+                      <span
+                        key={item}
+                        className="rounded-full border border-emerald-500/16 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-300"
+                      >
+                        {item}
+                      </span>
+                    ))}
                   </div>
                 </motion.aside>
               </div>
@@ -347,28 +375,7 @@ export default function HomePageClient({
         </section>
 
         <div className="mx-auto mt-8 max-w-7xl space-y-0 px-4 sm:px-6 lg:px-8 [&>section]:py-14">
-          <motion.section
-            id="security-features"
-            className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.62),rgba(2,6,23,0.9))] p-6 shadow-[0_20px_56px_-34px_rgba(0,0,0,0.42)] lg:p-8"
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-80px" }}
-            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }}
-          >
-            <SectionHeader eyebrow={copy.securityEyebrow} icon={ShieldCheck} title={copy.securityTitle} description={copy.securityDescription} />
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {securityCards.map((card) => (
-                <motion.div key={card.title} variants={sectionVariants} className="rounded-[24px] border border-white/10 bg-white/5 p-5">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300">
-                    <card.icon className="h-5 w-5" />
-                  </div>
-                  <div className="mt-4 text-lg font-semibold text-white">{card.title}</div>
-                  <div className="mt-2 text-sm leading-6 text-slate-400">{card.description}</div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.section>
-
+          {/* ─── MONITORING SUMMARY ─── */}
           <motion.section initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }} variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}>
             <SectionHeader eyebrow={copy.statsEyebrow} icon={Activity} title={copy.statsTitle} description={copy.statsDescription} />
             <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -399,6 +406,67 @@ export default function HomePageClient({
             </div>
           </motion.section>
 
+          {/* ─── BEFORE VS AFTER TICKETSHIELD ─── */}
+          <motion.section
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: "-80px" }}
+            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }}
+          >
+            <SectionHeader eyebrow="Comparison" icon={Shield} title={copy.heroPanelTitle} description={copy.heroPanelDescription} />
+            <div className="mt-6 grid gap-5 lg:grid-cols-2">
+              {/* WITHOUT column */}
+              <motion.div variants={sectionVariants} className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.8),rgba(2,6,23,0.95))] p-6">
+                <div className="mb-5 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
+                  <XCircle className="h-4 w-4 text-red-400" />
+                  Without
+                </div>
+                <div className="space-y-4">
+                  {copy.beforeItems.map((item) => (
+                    <BeforeAfterItem key={item.title} title={item.title} description={item.description} variant="without" iconType={item.icon} />
+                  ))}
+                </div>
+              </motion.div>
+
+              {/* WITH column */}
+              <motion.div variants={sectionVariants} className="rounded-[28px] border border-emerald-500/15 bg-[linear-gradient(180deg,rgba(16,185,129,0.06),rgba(2,6,23,0.95))] p-6">
+                <div className="mb-5 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4" />
+                  With
+                </div>
+                <div className="space-y-4">
+                  {copy.afterItems.map((item) => (
+                    <BeforeAfterItem key={item.title} title={item.title} description={item.description} variant="with" iconType={item.icon} />
+                  ))}
+                </div>
+              </motion.div>
+            </div>
+          </motion.section>
+
+          {/* ─── AI SECURITY CARDS ─── */}
+          <motion.section
+            id="security-features"
+            className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.62),rgba(2,6,23,0.9))] p-6 shadow-[0_20px_56px_-34px_rgba(0,0,0,0.42)] lg:p-8"
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: "-80px" }}
+            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }}
+          >
+            <SectionHeader eyebrow={copy.securityEyebrow} icon={ShieldCheck} title={copy.securityTitle} description={copy.securityDescription} />
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {securityCards.map((card) => (
+                <motion.div key={card.title} variants={sectionVariants} className="rounded-[24px] border border-white/10 bg-white/5 p-5">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300">
+                    <card.icon className="h-5 w-5" />
+                  </div>
+                  <div className="mt-4 text-lg font-semibold text-white">{card.title}</div>
+                  <div className="mt-2 text-sm leading-6 text-slate-400">{card.description}</div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.section>
+
+          {/* ─── DETECTION FLOW ─── */}
           <motion.section
             id="detection-flow"
             initial="hidden"
@@ -414,7 +482,7 @@ export default function HomePageClient({
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300">
                       <card.icon className="h-5 w-5" />
                     </div>
-                    <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">0{index + 1}</div>
+                    <div className="text-4xl font-black tracking-[-0.06em] text-emerald-500/25">0{index + 1}</div>
                   </div>
                   <div className="mt-5 text-xl font-semibold text-white">{card.title}</div>
                   <div className="mt-3 text-sm leading-6 text-slate-400">{card.description}</div>
@@ -423,22 +491,7 @@ export default function HomePageClient({
             </div>
           </motion.section>
 
-          <motion.section initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }} variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }}>
-            <SectionHeader eyebrow={copy.howEyebrow} icon={QrCode} title={copy.howTitle} description={copy.howDescription} />
-            <div className="mt-6 grid gap-4 lg:grid-cols-4">
-              {howSteps.map((step, index) => (
-                <motion.div key={step.title} variants={sectionVariants} className="rounded-[24px] border border-white/10 bg-white/5 p-5">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300">
-                    <step.icon className="h-5 w-5" />
-                  </div>
-                  <div className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Step {index + 1}</div>
-                  <div className="mt-2 text-lg font-semibold text-white">{step.title}</div>
-                  <div className="mt-2 text-sm leading-6 text-slate-400">{step.description}</div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.section>
-
+          {/* ─── PROTECTED TICKET EVENTS ─── */}
           <motion.section initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }} variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }}>
             <SectionHeader eyebrow={copy.eventsEyebrow} icon={Ticket} title={copy.eventsTitle} description={copy.eventsDescription} actionHref="/matches" actionLabel={copy.viewAll} />
             {matchesLoading ? (
@@ -479,6 +532,97 @@ export default function HomePageClient({
         </div>
       </main>
     </>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Sub-components
+   ═══════════════════════════════════════════════════════════ */
+
+function LiveStatusRow({
+  label,
+  value,
+  status,
+}: {
+  label: string;
+  value: string;
+  status: "ONLINE" | "BLOCKED" | "VERIFIED" | "ALERT";
+}) {
+  const statusStyles = {
+    ONLINE: "border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
+    BLOCKED: "border-red-400/20 bg-red-400/10 text-red-300",
+    VERIFIED: "border-sky-400/20 bg-sky-400/10 text-sky-300",
+    ALERT: "border-amber-400/20 bg-amber-400/10 text-amber-300",
+  };
+
+  const statusIcons = {
+    ONLINE: Users,
+    BLOCKED: Bot,
+    VERIFIED: CreditCard,
+    ALERT: Wifi,
+  };
+
+  const StatusIcon = statusIcons[status];
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-[18px] border border-white/8 bg-white/[0.04] px-4 py-3">
+      <div className="flex items-center gap-3">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-slate-300">
+          <StatusIcon className="h-4 w-4" />
+        </span>
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</div>
+          <div className="mt-0.5 text-sm font-semibold text-white">{value}</div>
+        </div>
+      </div>
+      <span className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${statusStyles[status]}`}>
+        {status}
+      </span>
+    </div>
+  );
+}
+
+function BeforeAfterItem({
+  title,
+  description,
+  variant,
+  iconType,
+}: {
+  title: string;
+  description: string;
+  variant: "without" | "with";
+  iconType: string;
+}) {
+  const iconMap: Record<string, SectionIcon> = {
+    search: Eye,
+    retry: Zap,
+    session: BarChart3,
+    prevention: ShieldCheck,
+    throttling: Activity,
+    visibility: Eye,
+  };
+
+  const Icon = iconMap[iconType] ?? Shield;
+  const isWithout = variant === "without";
+
+  return (
+    <div className={`flex gap-4 rounded-[18px] border p-4 ${
+      isWithout
+        ? "border-white/8 bg-slate-950/35"
+        : "border-emerald-500/12 bg-emerald-500/8"
+    }`}>
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+        isWithout
+          ? "bg-white/[0.06] text-slate-400"
+          : "bg-emerald-500/14 text-emerald-300"
+      }`}>
+        <Icon className="h-4.5 w-4.5" />
+      </span>
+      <div>
+        <div className={`text-sm font-semibold ${isWithout ? "text-slate-300" : "text-emerald-200"}`}>{title}</div>
+        <div className="mt-1 text-[13px] leading-6 text-slate-400">{description}</div>
+      </div>
+    </div>
   );
 }
 
