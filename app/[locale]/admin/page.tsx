@@ -67,6 +67,7 @@ export default function AdminDashboard() {
     [bookingEvents, matches, blockedUsers],
   );
   const securitySummary = useMemo(() => summarizeSecurity(sessions), [sessions]);
+  const allowedSessions = Math.max(securitySummary.monitored - securitySummary.warned - securitySummary.blocked, 0);
   const securityTrend = useMemo(
     () =>
       buildDailyTrend(
@@ -92,11 +93,75 @@ export default function AdminDashboard() {
       ),
     [sessions],
   );
-  const recentOrders = tickets.slice(0, 5);
+  const recentOrders = tickets.slice(0, 3);
   const topSuspiciousSessions = suspiciousSessions.slice(0, 6);
 
   return (
     <div className="space-y-6">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <AdminPanel className="p-5 sm:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300">Security snapshot</div>
+              <h2 className="mt-3 text-2xl font-black tracking-tight text-white xl:text-[2rem] 2xl:text-3xl">
+                Review suspicious sessions before business summaries
+              </h2>
+              <p className="mt-3 max-w-xl text-sm leading-7 text-slate-400">
+                This dashboard keeps anti-bot investigation first, then surfaces orders and revenue as secondary operational context.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <OverviewStat
+                label="Monitored"
+                value={String(securitySummary.monitored)}
+                hint="Grouped sessions"
+              />
+              <OverviewStat
+                label="Suspicious"
+                value={String(suspiciousSessions.length)}
+                hint="Needs review"
+              />
+              <OverviewStat
+                label="Avg risk"
+                value={`${securitySummary.avgRisk}%`}
+                hint="Session score"
+              />
+            </div>
+          </div>
+        </AdminPanel>
+
+        <AdminPanel>
+          <AdminPanelHeader
+            title="Security Focus"
+            description="The signals that matter first in triage."
+            action={<StatusPill tone="amber">{topSuspiciousSessions.length} listed</StatusPill>}
+          />
+          <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
+            <OverviewStat
+              label="Warnings"
+              value={String(securitySummary.warned)}
+              hint="Analyst review needed."
+            />
+            <OverviewStat
+              label="Blocked"
+              value={String(securitySummary.blocked)}
+              hint="Restricted by system rules."
+            />
+            <OverviewStat
+              label="AI high"
+              value={String(securitySummary.aiHigh)}
+              hint="High AI verdicts seen."
+            />
+            <OverviewStat
+              label="Failed-open"
+              value={String(securitySummary.aiFailedOpen)}
+              hint="Fallback checkout cases."
+            />
+          </div>
+        </AdminPanel>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
         <AdminMetricCard
           label="Monitored Sessions"
@@ -128,7 +193,7 @@ export default function AdminDashboard() {
         />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_360px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_320px] 2xl:grid-cols-[minmax(0,1.5fr)_360px]">
         <AdminPanel>
           <AdminPanelHeader
             title="Risk Monitoring"
@@ -146,7 +211,7 @@ export default function AdminDashboard() {
             <div className="grid gap-4 lg:grid-cols-3">
               <OverviewStat
                 label={t("allow")}
-                value={String(securitySummary.monitored - securitySummary.warned - securitySummary.blocked)}
+                value={String(allowedSessions)}
                 hint="Stable sessions with low risk."
               />
               <OverviewStat
@@ -160,29 +225,13 @@ export default function AdminDashboard() {
                 hint="Restricted by security rules."
               />
             </div>
-
-            <div className="rounded-[28px] border border-cyan-500/14 bg-[linear-gradient(180deg,rgba(15,28,36,0.96),rgba(16,24,32,0.98))] p-5 shadow-[0_20px_40px_-32px_rgba(34,211,238,0.16)]">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300">Investigation focus</p>
-                  <h3 className="mt-3 text-2xl font-black tracking-tight text-white">Suspicious session review takes priority</h3>
-                  <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-400">
-                    Start with warning and blocked sessions, then inspect event timelines and retry behaviour before moving to business summaries.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-right">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Live alerts</p>
-                  <p className="mt-2 text-3xl font-black text-white">{suspiciousSessions.length}</p>
-                </div>
-              </div>
-            </div>
           </div>
         </AdminPanel>
 
         <AdminPanel>
           <AdminPanelHeader
             title="Operations Context"
-            description="Secondary business signals kept visible for matchday monitoring."
+            description="Compact business context kept visible during security review."
             action={<StatusPill tone="neutral">Secondary</StatusPill>}
           />
           <div className="grid gap-4 p-5 sm:p-6">
@@ -210,11 +259,11 @@ export default function AdminDashboard() {
         </AdminPanel>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.75fr)]">
         <AdminPanel>
           <AdminPanelHeader
             title="Recent Suspicious Sessions"
-            description="High-risk sessions sorted for fast review."
+            description="Only sessions with warning, block, AI risk, or failed-open status are shown."
             action={
               <div className="flex items-center gap-2">
                 <StatusPill tone="amber">{topSuspiciousSessions.length} listed</StatusPill>
@@ -256,7 +305,7 @@ export default function AdminDashboard() {
                   topSuspiciousSessions.map((session) => (
                     <tr key={session.id} className="admin-table-row">
                       <td className="px-5 py-4 font-mono text-xs text-slate-200 sm:px-6">{session.sessionId}</td>
-                      <td className="px-5 py-4 sm:px-6">{session.user}</td>
+                      <td className="px-5 py-4 text-slate-300 sm:px-6">{session.user}</td>
                       <td className="px-5 py-4 sm:px-6">
                         <div className="flex items-center gap-2">
                           <AlertTriangle className="h-4 w-4 text-amber-500" />
@@ -307,7 +356,7 @@ export default function AdminDashboard() {
         <AdminPanel>
           <AdminPanelHeader
             title="Recent Orders"
-            description="Business activity remains visible, but is secondary to session investigation."
+            description="Short business snapshot kept visible for operational context."
             action={<StatusPill tone="cyan"><ArrowUpRight className="mr-1.5 h-3.5 w-3.5" />Context</StatusPill>}
           />
           <div className="space-y-3 p-5 sm:p-6">

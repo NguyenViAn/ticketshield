@@ -250,11 +250,12 @@ function shouldResolveSuccessfulSession({
 }) {
   return (
     latestEventType === "checkout_success" &&
-    latestAiRiskLevel === "low" &&
-    latestRiskCheckStatus === "passed" &&
     checkoutFailures === 0 &&
     !checkoutRestricted &&
-    !hasAiHigh
+    !hasAiHigh &&
+    latestRiskCheckStatus !== "failed_open" &&
+    latestAiRiskLevel !== "warning" &&
+    latestAiRiskLevel !== "high"
   );
 }
 

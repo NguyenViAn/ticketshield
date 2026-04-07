@@ -86,19 +86,19 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   const sidebar = (
     <div className="flex h-full flex-col">
-      <div className="border-b border-white/6 px-5 py-5">
+      <div className="border-b border-white/6 px-4 py-4 2xl:px-5 2xl:py-5">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-500/16 bg-cyan-500/10 text-cyan-300">
             <Shield className="h-5 w-5" />
           </div>
           <div>
             <div className="text-sm font-bold uppercase tracking-[0.24em] text-cyan-300">{t("sidebar_title")}</div>
-            <div className="mt-1 text-xs text-slate-500">{t("sidebar_subtitle")}</div>
+            <div className="mt-1 hidden text-xs text-slate-500 2xl:block">{t("sidebar_subtitle")}</div>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 px-4 py-5">
+      <nav className="flex-1 px-3 py-4 2xl:px-4 2xl:py-5">
         <div className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
           {t("navigation_label")}
         </div>
@@ -111,7 +111,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 href={item.href}
                 onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 rounded-2xl border px-3 py-3 transition-colors ${
+                className={`flex items-center gap-3 rounded-2xl border px-3 py-2.5 2xl:py-3 transition-colors ${
                   active
                     ? "border-cyan-500/16 bg-[linear-gradient(90deg,rgba(34,211,238,0.12),rgba(8,12,18,0.08))] text-white shadow-[inset_3px_0_0_rgba(34,211,238,0.9)]"
                     : "border-transparent text-slate-500 hover:border-white/6 hover:bg-white/[0.03] hover:text-slate-200"
@@ -126,7 +126,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold">{t(`nav.${item.key}.label`)}</span>
-                  <span className="mt-0.5 block truncate text-xs text-slate-500">{t(`nav.${item.key}.description`)}</span>
+                  <span className="mt-0.5 hidden truncate text-xs text-slate-500 2xl:block">{t(`nav.${item.key}.description`)}</span>
                 </span>
               </Link>
             );
@@ -134,8 +134,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
-      <div className="border-t border-white/6 p-4">
-        <AdminPanel className="p-4">
+      <div className="border-t border-white/6 p-3 2xl:p-4">
+        <AdminPanel className="p-3 2xl:p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">{t("ai_status_label")}</p>
@@ -143,7 +143,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
             <StatusPill tone="emerald">{t("ai_status_badge")}</StatusPill>
           </div>
-          <p className="mt-3 text-sm text-slate-400">{t("ai_status_desc")}</p>
+          <p className="mt-3 hidden text-sm text-slate-400 2xl:block">{t("ai_status_desc")}</p>
         </AdminPanel>
       </div>
     </div>
@@ -152,14 +152,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[#0f131a] text-slate-300">
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.05),transparent_22%),linear-gradient(180deg,#0f131a_0%,#10151d_100%)]" />
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[300px] border-r border-white/6 bg-[#0c1118] backdrop-blur-xl xl:block">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[248px] border-r border-white/6 bg-[#0c1118] backdrop-blur-xl lg:block 2xl:w-[280px]">
         {sidebar}
       </aside>
 
       {mobileOpen ? (
         <>
-          <button className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] xl:hidden" onClick={() => setMobileOpen(false)} />
-          <aside className="fixed inset-y-0 left-0 z-50 w-[300px] border-r border-white/6 bg-[#0c1118] xl:hidden">
+          <button className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] lg:hidden" onClick={() => setMobileOpen(false)} />
+          <aside className="fixed inset-y-0 left-0 z-50 w-[300px] border-r border-white/6 bg-[#0c1118] lg:hidden">
             <div className="flex h-16 items-center justify-end px-4">
               <button
                 className="admin-focus-ring flex h-10 w-10 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-300"
@@ -173,10 +173,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </>
       ) : null}
 
-      <div className="relative xl:ml-[300px]">
+      <div className="relative lg:ml-[248px] 2xl:ml-[280px]">
         <header className="sticky top-0 z-30 border-b border-white/6 bg-[#121721]/92 backdrop-blur-xl">
-          <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 xl:px-8">
-            <div className="flex items-center gap-3 xl:hidden">
+          <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 lg:px-7 2xl:px-8">
+            <div className="flex items-center gap-3 lg:hidden">
               <button
                 className="admin-focus-ring flex h-11 w-11 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-300"
                 onClick={() => setMobileOpen(true)}
@@ -196,7 +196,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="relative min-w-[220px] flex-1 sm:w-[320px]">
+                <div className="relative min-w-0 flex-1 sm:w-[280px] xl:w-[320px]">
                   <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
@@ -271,7 +271,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="relative px-4 py-6 sm:px-6 xl:px-8 xl:py-8">{children}</main>
+        <main className="relative px-4 py-6 sm:px-6 lg:px-7 2xl:px-8 2xl:py-8">{children}</main>
       </div>
     </div>
   );

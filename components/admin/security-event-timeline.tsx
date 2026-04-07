@@ -130,56 +130,32 @@ export function SecurityEventTimeline({
                 </StatusPill>
               </div>
 
-              <div className="mt-4 grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
-                <div className="rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    {event.type === "ai_risk_checked" ? "Step" : "Seat count"}
-                  </div>
-                  <div className="mt-2 text-base font-semibold text-white">
-                    {event.type === "ai_risk_checked"
-                      ? event.step === "seat_page"
-                        ? "Seat page"
-                        : event.step === "payment_pre_checkout"
-                          ? "Payment pre-check"
-                          : "--"
-                      : event.seatCount}
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    {event.type === "ai_risk_checked" ? "Confidence" : "Retry count"}
-                  </div>
-                  <div className="mt-2 text-base font-semibold text-white">
-                    {event.type === "ai_risk_checked"
-                      ? typeof event.confidence === "number"
-                        ? `${(event.confidence * 100).toFixed(1)}%`
-                        : "--"
-                      : event.retryCount}
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    {event.type === "ai_risk_checked" ? "Checked at" : "Seats"}
-                  </div>
-                  <div className="mt-2 truncate text-base font-semibold text-white">
-                    {event.type === "ai_risk_checked"
-                      ? event.checkedAt
-                        ? formatDate(event.checkedAt, locale)
-                        : "--"
-                      : event.seatIds.length
-                        ? event.seatIds.join(", ")
-                        : "--"}
-                  </div>
-                </div>
-              </div>
-
               {event.type === "ai_risk_checked" ? (
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <StatusPill tone="neutral">
+                    {event.step === "seat_page"
+                      ? "Seat page"
+                      : event.step === "payment_pre_checkout"
+                        ? "Payment pre-check"
+                        : "Unknown step"}
+                  </StatusPill>
+                  <StatusPill tone="neutral">
+                    Confidence: {typeof event.confidence === "number" ? `${(event.confidence * 100).toFixed(1)}%` : "--"}
+                  </StatusPill>
+                  <StatusPill tone="neutral">
+                    Checked: {event.checkedAt ? formatDate(event.checkedAt, locale) : "--"}
+                  </StatusPill>
                   <StatusPill tone="neutral">Status: {event.riskCheckStatus ?? "--"}</StatusPill>
                   <StatusPill tone="neutral">Warning accepted: {event.warningAccepted ? "Yes" : "No"}</StatusPill>
                   {event.seatIds.length ? <StatusPill tone="neutral">Seats: {event.seatIds.length}</StatusPill> : null}
                 </div>
-              ) : null}
+              ) : (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <StatusPill tone="neutral">Seat count: {event.seatCount}</StatusPill>
+                  <StatusPill tone="neutral">Retry count: {event.retryCount}</StatusPill>
+                  {event.seatIds.length ? <StatusPill tone="neutral">Seats: {event.seatIds.join(", ")}</StatusPill> : null}
+                </div>
+              )}
             </div>
           </div>
         );

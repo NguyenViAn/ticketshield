@@ -44,9 +44,9 @@ function DetailMetric({
   value: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[24px] border border-white/6 bg-[linear-gradient(180deg,rgba(24,30,39,0.98),rgba(20,25,34,0.98))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
+    <div className="rounded-[22px] border border-white/6 bg-[linear-gradient(180deg,rgba(24,30,39,0.98),rgba(20,25,34,0.98))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
       <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</div>
-      <div className="mt-3 text-lg font-semibold leading-7 text-white">{value}</div>
+      <div className="mt-2 text-lg font-semibold leading-7 text-white">{value}</div>
     </div>
   );
 }
@@ -75,7 +75,7 @@ export function SecuritySessionDetail({
   if (!session) {
     return (
       <AdminPanel className="p-8 sm:p-10">
-        <div className="admin-empty-state flex min-h-[480px] flex-col items-center justify-center">
+        <div className="admin-empty-state flex min-h-[320px] flex-col items-center justify-center xl:min-h-[420px]">
             <div className="flex h-16 w-16 items-center justify-center rounded-[24px] border border-cyan-500/14 bg-cyan-500/[0.08] text-cyan-300">
             <ShieldAlert className="h-7 w-7" />
           </div>
@@ -92,8 +92,8 @@ export function SecuritySessionDetail({
     <div className="space-y-6">
       <AdminPanel>
         <AdminPanelHeader
-          title="Risk Summary"
-          description="Session-level decision derived from grouped booking_events."
+          title="Session Overview"
+          description="Current session state with rule-based and AI verdicts side by side."
           action={
             <div className="flex flex-wrap gap-2">
               <StatusPill tone={decisionTone(session.decision)}>{session.status}</StatusPill>
@@ -101,40 +101,36 @@ export function SecuritySessionDetail({
             </div>
           }
         />
-        <div className="grid gap-4 p-5 sm:p-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-          <div className="rounded-[28px] border border-cyan-500/12 bg-[linear-gradient(180deg,rgba(17,30,38,0.98),rgba(18,25,34,0.98))] p-5">
+        <div className="space-y-4 p-5 sm:p-6">
+          <div className="flex flex-col gap-4 rounded-[28px] border border-cyan-500/12 bg-[linear-gradient(180deg,rgba(17,30,38,0.98),rgba(18,25,34,0.98))] p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  {session.sessionId}
-                </div>
-                <div className="mt-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300">Current assessment</div>
-                <h2 className="mt-3 text-3xl font-black tracking-tight text-white">{session.reason}</h2>
-                <div className="mt-4 text-sm text-slate-300">{session.match}</div>
+                <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">{session.sessionId}</div>
+                <h2 className="mt-3 text-2xl font-black tracking-tight text-white xl:text-3xl">{session.reason}</h2>
+                <div className="mt-3 text-sm text-slate-300">{session.match}</div>
                 <div className="mt-1 text-sm text-slate-500">
                   {session.userId ? `User ${session.user}` : session.user} | Last activity {formatDate(session.timestamp, locale)}
                 </div>
               </div>
-              <div className="rounded-[24px] border border-cyan-500/14 bg-cyan-500/[0.06] px-4 py-3 text-right shadow-[0_12px_30px_-26px_rgba(34,211,238,0.28)]">
+              <div className="rounded-[22px] border border-cyan-500/14 bg-cyan-500/[0.06] px-4 py-3">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-300">Risk score</div>
                 <div className="mt-2 text-4xl font-black leading-none text-white">{session.score}</div>
-                <div className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-500">{session.scoreLabel}</div>
               </div>
             </div>
 
-            <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              <div className="rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="rounded-[22px] border border-white/6 bg-white/[0.03] p-4">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Rule-based decision</div>
-                <div className="mt-3 flex items-center gap-2">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <StatusPill tone={decisionTone(session.decision)}>{session.status}</StatusPill>
                   <StatusPill tone={scoreTone(session.scoreLabel)}>{session.scoreLabel}</StatusPill>
                 </div>
                 <div className="mt-3 text-sm leading-6 text-slate-300">{session.reason}</div>
               </div>
 
-              <div className="rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
+              <div className="rounded-[22px] border border-white/6 bg-white/[0.03] p-4">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Latest AI verdict</div>
-                <div className="mt-3 flex items-center gap-2">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <StatusPill tone={aiTone(session.ai.latestAiRiskLevel, session.ai.latestRiskCheckStatus)}>
                     {session.ai.latestRiskCheckStatus === "failed_open"
                       ? "Failed open"
@@ -144,27 +140,31 @@ export function SecuritySessionDetail({
                     <StatusPill tone="neutral">{session.ai.latestAiStep === "seat_page" ? "Seat page" : "Payment pre-check"}</StatusPill>
                   ) : null}
                 </div>
-                <div className="mt-3 space-y-1 text-sm text-slate-300">
+                <div className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2">
                   <div>
                     Confidence:{" "}
                     {typeof session.ai.latestAiConfidence === "number"
                       ? `${(session.ai.latestAiConfidence * 100).toFixed(1)}%`
                       : "--"}
                   </div>
-                  <div>Last checked: {session.ai.latestAiCheckedAt ? formatDate(session.ai.latestAiCheckedAt, locale) : "--"}</div>
                   <div>Status: {session.ai.latestRiskCheckStatus ?? "--"}</div>
+                  <div className="sm:col-span-2">
+                    Last checked: {session.ai.latestAiCheckedAt ? formatDate(session.ai.latestAiCheckedAt, locale) : "--"}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             <DetailMetric label="Status" value={session.status} />
-            <DetailMetric label="Score" value={session.scoreLabel} />
-            <DetailMetric label="AI Risk" value={session.ai.latestAiRiskLevel ?? "No AI check"} />
+            <DetailMetric label="AI risk" value={session.ai.latestAiRiskLevel ?? "No AI check"} />
             <DetailMetric label="Total events" value={session.totalEvents} />
-            <DetailMetric label="Checkout retries" value={session.checkoutRetries} />
             <DetailMetric label="Seats touched" value={session.seatsTouched} />
+            <DetailMetric label="Checkout retries" value={session.checkoutRetries} />
+            <DetailMetric label="AI checks" value={session.metrics.aiCheckCount} />
+            <DetailMetric label="AI warning seen" value={session.metrics.hasAiWarning ? "Yes" : "No"} />
+            <DetailMetric label="Latest risk status" value={session.metrics.latestRiskCheckStatus ?? "--"} />
           </div>
         </div>
       </AdminPanel>
@@ -186,7 +186,7 @@ export function SecuritySessionDetail({
       <AdminPanel>
         <AdminPanelHeader
           title="Session Metrics"
-          description="Operational counters for explaining rule-based and AI decisions."
+          description="Operational counters used to explain the current session outcome."
           action={
             <StatusPill tone={decisionTone(session.decision)}>
               <Activity className="mr-1.5 h-3.5 w-3.5" />
@@ -194,13 +194,11 @@ export function SecuritySessionDetail({
             </StatusPill>
           }
         />
-        <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6 xl:grid-cols-4">
+        <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6 xl:grid-cols-3 2xl:grid-cols-4">
           <DetailMetric label="Total seat changes" value={session.metrics.totalSeatChanges} />
           <DetailMetric label="Selected seats peak" value={session.metrics.selectedSeatsPeak} />
           <DetailMetric label="Retry count" value={session.metrics.retryCount} />
           <DetailMetric label="Current decision" value={session.metrics.currentDecision} />
-          <DetailMetric label="AI checks" value={session.metrics.aiCheckCount} />
-          <DetailMetric label="AI warning seen" value={session.metrics.hasAiWarning ? "Yes" : "No"} />
           <DetailMetric label="AI high seen" value={session.metrics.hasAiHigh ? "Yes" : "No"} />
           <DetailMetric label="Latest risk status" value={session.metrics.latestRiskCheckStatus ?? "--"} />
         </div>

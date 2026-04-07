@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AlertTriangle, RefreshCcw, ShieldAlert, ShieldCheck, ShieldX, Siren } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale } from "next-intl";
 
 import { AdminMetricCard, AdminPanel, AdminPanelHeader } from "@/components/admin/admin-primitives";
 import { SecuritySessionDetail } from "@/components/admin/security-session-detail";
@@ -15,15 +15,74 @@ type AiRiskFilterValue = "all" | AiRiskLevel;
 type StepFilterValue = "all" | "seat_page" | "payment_pre_checkout";
 type RiskStatusFilterValue = "all" | AiRiskCheckStatus;
 
+const decisionFilters: [FilterValue, string][] = [
+  ["all", "All sessions"],
+  ["allow", "Allow"],
+  ["warn", "Warn"],
+  ["block", "Block"],
+];
+
+const aiFilters: [AiRiskFilterValue, string][] = [
+  ["all", "All AI"],
+  ["low", "Low"],
+  ["warning", "Warning"],
+  ["high", "High"],
+];
+
+const stepFilters: [StepFilterValue, string][] = [
+  ["all", "All steps"],
+  ["seat_page", "Seat page"],
+  ["payment_pre_checkout", "Payment"],
+];
+
+const statusFilters: [RiskStatusFilterValue, string][] = [
+  ["all", "All statuses"],
+  ["passed", "Passed"],
+  ["failed_open", "Failed open"],
+];
+
+function FilterGroup<T extends string>({
+  label,
+  value,
+  items,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  items: [T, string][];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</div>
+      <div className="flex flex-wrap gap-2">
+        {items.map(([item, itemLabel]) => (
+          <button
+            key={item}
+            type="button"
+            className={`admin-focus-ring rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors ${
+              value === item ? "border-cyan-500/18 bg-cyan-500/10 text-cyan-300" : "admin-button-muted text-slate-300"
+            }`}
+            onClick={() => onChange(item)}
+          >
+            {itemLabel}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AISecurityPage() {
   const locale = useLocale();
-  const t = useTranslations("AdminAISecurity");
   const [filter, setFilter] = useState<FilterValue>("all");
   const [aiRiskFilter, setAiRiskFilter] = useState<AiRiskFilterValue>("all");
   const [stepFilter, setStepFilter] = useState<StepFilterValue>("all");
   const [riskStatusFilter, setRiskStatusFilter] = useState<RiskStatusFilterValue>("all");
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const { data, error, isLoading, refetch } = useAdminSecuritySessions();
+
+  const allowedSessions = Math.max(data.summary.monitored - data.summary.warned - data.summary.blocked, 0);
 
   const filteredSessions = useMemo(
     () =>
@@ -55,7 +114,58 @@ export default function AISecurityPage() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+        <AdminPanel className="p-5 sm:p-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+            <div className="max-w-2xl">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300">Monitor overview</div>
+              <h2 className="mt-3 text-2xl font-black tracking-tight text-white xl:text-[2rem] 2xl:text-3xl">AI, rule-based, and fallback signals in one review flow</h2>
+              <p className="mt-3 max-w-xl text-sm leading-7 text-slate-400">
+                Scan sessions on the left, then inspect the latest AI verdict, rule-based decision, and checkout outcome on the right.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[320px] 2xl:min-w-[360px]">
+              <div className="rounded-[22px] border border-white/6 bg-white/[0.03] px-4 py-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Monitored</div>
+                <div className="mt-2 text-3xl font-black leading-none text-white">
+                  {isLoading ? "..." : data.summary.monitored.toString()}
+                </div>
+              </div>
+              <div className="rounded-[22px] border border-white/6 bg-white/[0.03] px-4 py-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Blocked</div>
+                <div className="mt-2 text-3xl font-black leading-none text-white">
+                  {isLoading ? "..." : data.summary.blocked.toString()}
+                </div>
+              </div>
+              <div className="rounded-[22px] border border-white/6 bg-white/[0.03] px-4 py-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Avg risk</div>
+                <div className="mt-2 text-3xl font-black leading-none text-white">
+                  {isLoading ? "..." : `${data.summary.avgRisk}%`}
+                </div>
+              </div>
+            </div>
+          </div>
+        </AdminPanel>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <AdminMetricCard
+            label="AI warnings"
+            value={isLoading ? "..." : data.summary.aiWarning.toString()}
+            hint="Sessions where AI asked for user confirmation or analyst review."
+            icon={AlertTriangle}
+            accent="amber"
+          />
+          <AdminMetricCard
+            label="Failed-open"
+            value={isLoading ? "..." : data.summary.aiFailedOpen.toString()}
+            hint="Checks that continued because the AI service was unavailable."
+            icon={Siren}
+            accent="emerald"
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-4">
         <AdminMetricCard
           label="AI checks"
           value={isLoading ? "..." : data.summary.aiChecks.toString()}
@@ -64,56 +174,25 @@ export default function AISecurityPage() {
           accent="cyan"
         />
         <AdminMetricCard
-          label="AI warnings"
-          value={isLoading ? "..." : data.summary.aiWarning.toString()}
-          hint="Warning verdicts requiring analyst review or user confirmation."
-          icon={AlertTriangle}
-          accent="amber"
-        />
-        <AdminMetricCard
           label="AI high verdicts"
           value={isLoading ? "..." : data.summary.aiHigh.toString()}
-          hint="High-risk AI checks that should be investigated first."
+          hint="High-risk AI checks that should be reviewed first."
           icon={ShieldX}
           accent="red"
-        />
-        <AdminMetricCard
-          label="Failed-open checks"
-          value={isLoading ? "..." : data.summary.aiFailedOpen.toString()}
-          hint="Checks where AI was unavailable and checkout followed fallback policy."
-          icon={Siren}
-          accent="emerald"
-        />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <AdminMetricCard
-          label={t("metric_monitored")}
-          value={isLoading ? "..." : data.summary.monitored.toString()}
-          hint={t("metric_monitored_hint")}
-          icon={ShieldCheck}
-          accent="cyan"
         />
         <AdminMetricCard
           label="Sessions with AI high"
           value={isLoading ? "..." : data.summary.sessionsWithAiHigh.toString()}
           hint="Sessions containing at least one high AI verdict in their timeline."
-          icon={AlertTriangle}
+          icon={ShieldAlert}
           accent="amber"
         />
         <AdminMetricCard
-          label={t("metric_blocked")}
-          value={isLoading ? "..." : data.summary.blocked.toString()}
-          hint={t("metric_blocked_hint")}
-          icon={ShieldX}
-          accent="red"
-        />
-        <AdminMetricCard
-          label={t("metric_avg_risk")}
-          value={isLoading ? "..." : `${data.summary.avgRisk}%`}
-          hint={t("metric_avg_risk_hint")}
-          icon={ShieldAlert}
-          accent="emerald"
+          label="Decision mix"
+          value={isLoading ? "..." : `${allowedSessions}/${data.summary.warned}/${data.summary.blocked}`}
+          hint="Allow, warn, and block counts across grouped security sessions."
+          icon={ShieldCheck}
+          accent="cyan"
         />
       </div>
 
@@ -136,11 +215,11 @@ export default function AISecurityPage() {
         </AdminPanel>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
+      <div className="grid gap-6 xl:grid-cols-[312px_minmax(0,1fr)] 2xl:grid-cols-[340px_minmax(0,1fr)]">
         <AdminPanel className="overflow-hidden">
           <AdminPanelHeader
             title="Security Session List"
-            description="Grouped booking sessions with rule-based and AI verdict context side by side."
+            description="Grouped sessions with latest decision, AI verdict, and recent activity."
             action={
               <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                 <span>{filteredSessions.length} sessions</span>
@@ -155,89 +234,11 @@ export default function AISecurityPage() {
               </div>
             }
           />
-          <div className="space-y-3 border-b border-white/6 px-5 py-4 sm:px-6">
-            <div className="flex flex-wrap gap-2">
-              {([
-                ["all", t("filter_all")],
-                ["allow", t("filter_allow")],
-                ["warn", t("filter_warn")],
-                ["block", t("filter_block")],
-              ] as [FilterValue, string][]).map(([item, label]) => (
-                <button
-                  key={item}
-                  type="button"
-                  className={`admin-focus-ring rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] transition-colors ${
-                    filter === item
-                      ? "border-cyan-500/18 bg-cyan-500/10 text-cyan-300"
-                      : "admin-button-muted text-slate-300"
-                  }`}
-                  onClick={() => setFilter(item)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {([
-                ["all", "All AI"],
-                ["low", "AI low"],
-                ["warning", "AI warning"],
-                ["high", "AI high"],
-              ] as [AiRiskFilterValue, string][]).map(([item, label]) => (
-                <button
-                  key={item}
-                  type="button"
-                  className={`admin-focus-ring rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] transition-colors ${
-                    aiRiskFilter === item
-                      ? "border-cyan-500/18 bg-cyan-500/10 text-cyan-300"
-                      : "admin-button-muted text-slate-300"
-                  }`}
-                  onClick={() => setAiRiskFilter(item)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {([
-                ["all", "All steps"],
-                ["seat_page", "Seat page"],
-                ["payment_pre_checkout", "Payment pre-check"],
-              ] as [StepFilterValue, string][]).map(([item, label]) => (
-                <button
-                  key={item}
-                  type="button"
-                  className={`admin-focus-ring rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] transition-colors ${
-                    stepFilter === item
-                      ? "border-cyan-500/18 bg-cyan-500/10 text-cyan-300"
-                      : "admin-button-muted text-slate-300"
-                  }`}
-                  onClick={() => setStepFilter(item)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {([
-                ["all", "All statuses"],
-                ["passed", "Passed"],
-                ["failed_open", "Failed open"],
-              ] as [RiskStatusFilterValue, string][]).map(([item, label]) => (
-                <button
-                  key={item}
-                  type="button"
-                  className={`admin-focus-ring rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] transition-colors ${
-                    riskStatusFilter === item
-                      ? "border-cyan-500/18 bg-cyan-500/10 text-cyan-300"
-                      : "admin-button-muted text-slate-300"
-                  }`}
-                  onClick={() => setRiskStatusFilter(item)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+          <div className="grid gap-4 border-b border-white/6 px-4 py-4 sm:px-5 xl:grid-cols-1 2xl:grid-cols-2">
+            <FilterGroup label="Decision" value={filter} items={decisionFilters} onChange={setFilter} />
+            <FilterGroup label="AI verdict" value={aiRiskFilter} items={aiFilters} onChange={setAiRiskFilter} />
+            <FilterGroup label="Step" value={stepFilter} items={stepFilters} onChange={setStepFilter} />
+            <FilterGroup label="Risk status" value={riskStatusFilter} items={statusFilters} onChange={setRiskStatusFilter} />
           </div>
           <SecuritySessionList
             sessions={filteredSessions}
@@ -245,7 +246,7 @@ export default function AISecurityPage() {
             onSelect={setSelectedSessionId}
             locale={locale}
             isLoading={isLoading}
-            emptyLabel={t("empty")}
+            emptyLabel="No sessions match the current filters."
           />
         </AdminPanel>
 

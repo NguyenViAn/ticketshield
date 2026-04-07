@@ -68,7 +68,7 @@ export function SecuritySessionList({
   }
 
   return (
-    <div className="max-h-[calc(100vh-16rem)] space-y-3 overflow-y-auto p-4 sm:p-5">
+    <div className="max-h-[calc(100vh-14rem)] space-y-3 overflow-y-auto p-4 xl:p-4 2xl:max-h-[calc(100vh-16rem)] 2xl:p-5">
       {sessions.map((session) => {
         const selected = selectedSessionId === session.id;
 
@@ -77,7 +77,7 @@ export function SecuritySessionList({
             key={session.id}
             type="button"
             onClick={() => onSelect(session.id)}
-            className={`admin-focus-ring w-full rounded-[26px] border p-4 text-left transition-all ${
+            className={`admin-focus-ring w-full rounded-[24px] border p-3.5 text-left transition-all 2xl:rounded-[26px] 2xl:p-4 ${
               selected
                 ? "border-cyan-500/18 bg-[linear-gradient(180deg,rgba(18,34,43,0.98),rgba(17,28,36,0.98))] shadow-[0_0_0_1px_rgba(34,211,238,0.18),0_18px_34px_-28px_rgba(0,0,0,0.42)]"
                 : "border-white/6 bg-[#181e27] hover:border-cyan-500/10 hover:bg-[#1c232d]"
@@ -101,35 +101,45 @@ export function SecuritySessionList({
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-              <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Rule-based decision
+            <div className="mt-4 grid gap-3">
+              <div className="grid gap-3 xl:grid-cols-1 2xl:grid-cols-2">
+                <div className="rounded-[18px] border border-white/6 bg-white/[0.03] px-3 py-3 2xl:rounded-[20px]">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Rule-based</div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <StatusPill tone={decisionTone(session.decision)}>{session.status}</StatusPill>
+                    <span className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{session.scoreLabel}</span>
+                  </div>
+                  <div className="mt-2 line-clamp-2 text-sm leading-6 text-slate-300">{session.reason}</div>
                 </div>
-                <div className="mt-1 line-clamp-2 text-sm leading-6 text-slate-300">{session.reason}</div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <StatusPill tone={aiTone(session.ai.latestAiRiskLevel, session.ai.latestRiskCheckStatus)}>
-                    {session.ai.latestRiskCheckStatus === "failed_open"
-                      ? "AI failed open"
-                      : session.ai.latestAiRiskLevel ?? "No AI check"}
-                  </StatusPill>
-                  <span className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
-                    {typeof session.ai.latestAiConfidence === "number"
-                      ? `${(session.ai.latestAiConfidence * 100).toFixed(1)}% confidence`
-                      : "No confidence"}
-                  </span>
+
+                <div className="rounded-[18px] border border-white/6 bg-white/[0.03] px-3 py-3 2xl:rounded-[20px]">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Latest AI</div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <StatusPill tone={aiTone(session.ai.latestAiRiskLevel, session.ai.latestRiskCheckStatus)}>
+                      {session.ai.latestRiskCheckStatus === "failed_open"
+                        ? "Failed open"
+                        : session.ai.latestAiRiskLevel ?? "No AI check"}
+                    </StatusPill>
+                    <span className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                      {typeof session.ai.latestAiConfidence === "number"
+                        ? `${(session.ai.latestAiConfidence * 100).toFixed(1)}%`
+                        : "--"}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-xs leading-5 text-slate-400">
+                    {session.ai.latestAiCheckedAt
+                      ? `Checked ${formatDate(session.ai.latestAiCheckedAt, locale)}`
+                      : "No AI verdict recorded"}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-col items-start gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 sm:items-end">
-                <div className="flex items-center gap-2">
-                  <span>{session.scoreLabel}</span>
-                  <span className="h-1 w-1 rounded-full bg-slate-600" />
-                  <span>{session.totalEvents} events</span>
-                </div>
-                <span>
-                  {session.ai.latestAiCheckedAt ? `AI checked ${formatDate(session.ai.latestAiCheckedAt, locale)}` : "AI not checked"}
-                </span>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                <span>{session.totalEvents} events</span>
+                <span className="h-1 w-1 rounded-full bg-slate-600" />
+                <span>{session.seatsTouched} seats touched</span>
+                <span className="h-1 w-1 rounded-full bg-slate-600" />
+                <span>{session.checkoutRetries} retries</span>
               </div>
             </div>
           </button>
