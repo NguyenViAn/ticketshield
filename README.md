@@ -29,6 +29,12 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Python AI Service
+
+The app also calls a local Python risk scoring service from `python-ai/README.md`.
+
+If `PYTHON_AI_URL` is not set, the frontend uses `http://127.0.0.1:8000/predict`.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
