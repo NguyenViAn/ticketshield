@@ -152,14 +152,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[#0f131a] text-slate-300">
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.05),transparent_22%),linear-gradient(180deg,#0f131a_0%,#10151d_100%)]" />
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[248px] border-r border-white/6 bg-[#0c1118] backdrop-blur-xl lg:block 2xl:w-[280px]">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[224px] border-r border-white/6 bg-[#0c1118] backdrop-blur-xl xl:block 2xl:w-[272px]">
         {sidebar}
       </aside>
 
       {mobileOpen ? (
         <>
-          <button className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] lg:hidden" onClick={() => setMobileOpen(false)} />
-          <aside className="fixed inset-y-0 left-0 z-50 w-[300px] border-r border-white/6 bg-[#0c1118] lg:hidden">
+          <button className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] xl:hidden" onClick={() => setMobileOpen(false)} />
+          <aside className="fixed inset-y-0 left-0 z-50 w-[300px] border-r border-white/6 bg-[#0c1118] xl:hidden">
             <div className="flex h-16 items-center justify-end px-4">
               <button
                 className="admin-focus-ring flex h-10 w-10 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-300"
@@ -173,10 +173,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </>
       ) : null}
 
-      <div className="relative lg:ml-[248px] 2xl:ml-[280px]">
+      <div className="relative xl:ml-[224px] 2xl:ml-[272px]">
         <header className="sticky top-0 z-30 border-b border-white/6 bg-[#121721]/92 backdrop-blur-xl">
-          <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 lg:px-7 2xl:px-8">
-            <div className="flex items-center gap-3 lg:hidden">
+          <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-4 lg:px-6 xl:px-6 2xl:px-8">
+            <div className="flex items-center gap-3 xl:hidden">
               <button
                 className="admin-focus-ring flex h-11 w-11 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-300"
                 onClick={() => setMobileOpen(true)}
@@ -189,19 +189,19 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
               <div>
                 <h1 className="text-2xl font-black tracking-tight text-white">{t(`page.${pageKey}.title`)}</h1>
                 <p className="mt-1 text-sm text-slate-400">{t(`page.${pageKey}.description`)}</p>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="relative min-w-0 flex-1 sm:w-[280px] xl:w-[320px]">
-                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <div className="flex flex-col gap-3 md:flex-row md:items-center 2xl:justify-end">
+                <div className="relative min-w-0 flex-1 md:w-[200px] lg:w-[220px] xl:w-[240px] 2xl:w-[320px]">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 sm:left-4" />
                   <input
                     type="text"
                     placeholder={t("search_placeholder")}
-                    className="admin-focus-ring h-11 w-full rounded-2xl border border-white/8 bg-[#1b212b] pl-11 pr-4 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-500 focus:border-cyan-400/40 focus:ring-4 focus:ring-cyan-500/10"
+                    className="admin-focus-ring h-10 w-full rounded-2xl border border-white/8 bg-[#1b212b] pl-10 pr-3 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-500 focus:border-cyan-400/40 focus:ring-4 focus:ring-cyan-500/10 sm:h-11 sm:pl-11 sm:pr-4"
                   />
                 </div>
 
@@ -217,7 +217,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/12 text-sm font-semibold text-cyan-300">
                             {user?.name?.slice(0, 1).toUpperCase() ?? "A"}
                           </span>
-                          <span className="hidden sm:block">
+                          <span className="hidden xl:block">
                             <span className="block max-w-[120px] truncate text-sm font-semibold text-white">
                               {user?.name ?? t("default_user_name")}
                             </span>
@@ -254,7 +254,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/12 text-sm font-semibold text-cyan-300">
                         {user?.name?.slice(0, 1).toUpperCase() ?? "A"}
                       </span>
-                      <span className="hidden sm:block">
+                      <span className="hidden xl:block">
                         <span className="block max-w-[120px] truncate text-sm font-semibold text-white">
                           {user?.name ?? t("default_user_name")}
                         </span>
@@ -271,7 +271,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="relative px-4 py-6 sm:px-6 lg:px-7 2xl:px-8 2xl:py-8">{children}</main>
+        <main className="relative mx-auto max-w-[1600px] px-3 py-4 sm:px-4 sm:py-6 lg:px-6 xl:px-6 2xl:px-8 2xl:py-8">{children}</main>
       </div>
     </div>
   );

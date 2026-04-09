@@ -1,19 +1,30 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { AlertTriangle, RefreshCcw, ShieldAlert, ShieldCheck, ShieldX, Siren } from "lucide-react";
+import { Suspense, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  AlertTriangle,
+  RefreshCcw,
+  Siren,
+} from "lucide-react";
 import { useLocale } from "next-intl";
 
-import { AdminMetricCard, AdminPanel, AdminPanelHeader } from "@/components/admin/admin-primitives";
+import {
+  AdminMetricCardCompact,
+  AdminPanel,
+  AdminPanelHeader,
+  StatusPill,
+} from "@/components/admin/admin-primitives";
 import { SecuritySessionDetail } from "@/components/admin/security-session-detail";
 import { SecuritySessionList } from "@/components/admin/security-session-list";
-import { useAdminSecuritySessions } from "@/hooks/use-admin";
+import { useAdminSecurityContext } from "@/hooks/use-admin";
 import type { AiRiskCheckStatus, AiRiskLevel, SecurityDecision } from "@/lib/admin-security";
 
 type FilterValue = "all" | SecurityDecision;
 type AiRiskFilterValue = "all" | AiRiskLevel;
 type StepFilterValue = "all" | "seat_page" | "payment_pre_checkout";
 type RiskStatusFilterValue = "all" | AiRiskCheckStatus;
+type QuickFilterValue = "all" | "blocked_now" | "ai_warning" | "failed_open" | "resolved" | "no_ai_check";
 
 const decisionFilters: [FilterValue, string][] = [
   ["all", "All sessions"],
@@ -39,6 +50,15 @@ const statusFilters: [RiskStatusFilterValue, string][] = [
   ["all", "All statuses"],
   ["passed", "Passed"],
   ["failed_open", "Failed open"],
+];
+
+const quickFilters: [QuickFilterValue, string][] = [
+  ["all", "All"],
+  ["blocked_now", "Blocked now"],
+  ["ai_warning", "AI warning"],
+  ["failed_open", "Failed-open"],
+  ["resolved", "Resolved normal"],
+  ["no_ai_check", "No AI check"],
 ];
 
 function FilterGroup<T extends string>({
@@ -73,20 +93,43 @@ function FilterGroup<T extends string>({
   );
 }
 
-export default function AISecurityPage() {
+function AISecurityContent() {
   const locale = useLocale();
+  const searchParams = useSearchParams();
+  const urlSessionId = searchParams.get("sessionId");
+
   const [filter, setFilter] = useState<FilterValue>("all");
   const [aiRiskFilter, setAiRiskFilter] = useState<AiRiskFilterValue>("all");
   const [stepFilter, setStepFilter] = useState<StepFilterValue>("all");
   const [riskStatusFilter, setRiskStatusFilter] = useState<RiskStatusFilterValue>("all");
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const { data, error, isLoading, refetch } = useAdminSecuritySessions();
+  const [quickFilter, setQuickFilter] = useState<QuickFilterValue>("all");
+  const [manualSelectedSessionId, setManualSelectedSessionId] = useState<string | null>(null);
 
-  const allowedSessions = Math.max(data.summary.monitored - data.summary.warned - data.summary.blocked, 0);
+  const { data, error, isLoading, refetch } = useAdminSecurityContext();
 
   const filteredSessions = useMemo(
     () =>
       data.sessions.filter((session) => {
+        if (quickFilter !== "all") {
+          switch (quickFilter) {
+            case "blocked_now":
+              if (session.decision !== "block") return false;
+              break;
+            case "ai_warning":
+              if (session.ai.latestAiRiskLevel !== "warning" && session.ai.latestAiRiskLevel !== "high") return false;
+              break;
+            case "failed_open":
+              if (session.ai.latestRiskCheckStatus !== "failed_open") return false;
+              break;
+            case "resolved":
+              if (session.isSuspicious || session.decision !== "allow") return false;
+              break;
+            case "no_ai_check":
+              if (session.ai.aiCheckCount > 0) return false;
+              break;
+          }
+        }
+
         if (filter !== "all" && session.decision !== filter) {
           return false;
         }
@@ -105,96 +148,100 @@ export default function AISecurityPage() {
 
         return true;
       }),
-    [aiRiskFilter, data.sessions, filter, riskStatusFilter, stepFilter],
+    [aiRiskFilter, data.sessions, filter, quickFilter, riskStatusFilter, stepFilter],
   );
-  const activeSessionId = filteredSessions.some((session) => session.id === selectedSessionId)
-    ? selectedSessionId
+
+  const effectiveSelectedId = urlSessionId ?? manualSelectedSessionId;
+  const activeSessionId = filteredSessions.some((session) => session.id === effectiveSelectedId)
+    ? effectiveSelectedId
     : filteredSessions[0]?.id ?? null;
   const selectedSession = filteredSessions.find((session) => session.id === activeSessionId) ?? null;
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-        <AdminPanel className="p-5 sm:p-6">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] 2xl:items-start">
+        <AdminPanel className="p-4 sm:p-5 xl:p-6">
+          <div className="flex flex-col gap-4 sm:gap-5">
             <div className="max-w-2xl">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300">Monitor overview</div>
-              <h2 className="mt-3 text-2xl font-black tracking-tight text-white xl:text-[2rem] 2xl:text-3xl">AI, rule-based, and fallback signals in one review flow</h2>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300">Investigation center</div>
+              <h2 className="mt-2 text-xl font-black tracking-tight text-white sm:mt-3 sm:text-2xl xl:text-[2rem] 2xl:text-3xl">
+                AI, rule-based, and fallback signals in one review flow
+              </h2>
               <p className="mt-3 max-w-xl text-sm leading-7 text-slate-400">
-                Scan sessions on the left, then inspect the latest AI verdict, rule-based decision, and checkout outcome on the right.
+                Scan sessions on the left, then inspect AI verdict, rule-based decision, and system enforcement on the right.
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[320px] 2xl:min-w-[360px]">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:max-w-[720px]">
               <div className="rounded-[22px] border border-white/6 bg-white/[0.03] px-4 py-4">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Monitored</div>
-                <div className="mt-2 text-3xl font-black leading-none text-white">
-                  {isLoading ? "..." : data.summary.monitored.toString()}
-                </div>
+                <div className="mt-2 text-3xl font-black leading-none text-white">{isLoading ? "..." : data.summary.monitored.toString()}</div>
               </div>
               <div className="rounded-[22px] border border-white/6 bg-white/[0.03] px-4 py-4">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Blocked</div>
-                <div className="mt-2 text-3xl font-black leading-none text-white">
-                  {isLoading ? "..." : data.summary.blocked.toString()}
-                </div>
+                <div className="mt-2 text-3xl font-black leading-none text-white">{isLoading ? "..." : data.summary.blocked.toString()}</div>
               </div>
               <div className="rounded-[22px] border border-white/6 bg-white/[0.03] px-4 py-4">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Avg risk</div>
-                <div className="mt-2 text-3xl font-black leading-none text-white">
-                  {isLoading ? "..." : `${data.summary.avgRisk}%`}
-                </div>
+                <div className="mt-2 text-3xl font-black leading-none text-white">{isLoading ? "..." : `${data.summary.avgRisk}%`}</div>
               </div>
             </div>
           </div>
         </AdminPanel>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <AdminMetricCard
-            label="AI warnings"
-            value={isLoading ? "..." : data.summary.aiWarning.toString()}
-            hint="Sessions where AI asked for user confirmation or analyst review."
-            icon={AlertTriangle}
-            accent="amber"
-          />
-          <AdminMetricCard
-            label="Failed-open"
-            value={isLoading ? "..." : data.summary.aiFailedOpen.toString()}
-            hint="Checks that continued because the AI service was unavailable."
-            icon={Siren}
-            accent="emerald"
-          />
+          <AdminPanel className="p-4 sm:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">AI warnings</div>
+                <div className="mt-2 text-4xl font-black leading-none text-white">
+                  {isLoading ? "..." : data.summary.aiWarning.toString()}
+                </div>
+                <p className="mt-3 text-sm leading-6 text-slate-400">Sessions where AI asked for user confirmation or analyst review.</p>
+              </div>
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-400/18 bg-amber-400/10 text-amber-300">
+                <AlertTriangle className="h-5 w-5" />
+              </span>
+            </div>
+          </AdminPanel>
+          <AdminPanel className="p-4 sm:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Failed-open</div>
+                <div className="mt-2 text-4xl font-black leading-none text-white">
+                  {isLoading ? "..." : data.summary.failedOpenSessions.toString()}
+                </div>
+                <p className="mt-3 text-sm leading-6 text-slate-400">Sessions where AI service was unavailable, checkout continued.</p>
+              </div>
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-rose-500/18 bg-rose-500/10 text-rose-300">
+                <Siren className="h-5 w-5" />
+              </span>
+            </div>
+          </AdminPanel>
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-4">
-        <AdminMetricCard
-          label="AI checks"
-          value={isLoading ? "..." : data.summary.aiChecks.toString()}
-          hint="Total ai_risk_checked events captured across seat and payment flow."
-          icon={ShieldCheck}
-          accent="cyan"
-        />
-        <AdminMetricCard
-          label="AI high verdicts"
-          value={isLoading ? "..." : data.summary.aiHigh.toString()}
-          hint="High-risk AI checks that should be reviewed first."
-          icon={ShieldX}
-          accent="red"
-        />
-        <AdminMetricCard
-          label="Sessions with AI high"
-          value={isLoading ? "..." : data.summary.sessionsWithAiHigh.toString()}
-          hint="Sessions containing at least one high AI verdict in their timeline."
-          icon={ShieldAlert}
-          accent="amber"
-        />
-        <AdminMetricCard
-          label="Decision mix"
-          value={isLoading ? "..." : `${allowedSessions}/${data.summary.warned}/${data.summary.blocked}`}
-          hint="Allow, warn, and block counts across grouped security sessions."
-          icon={ShieldCheck}
-          accent="cyan"
-        />
-      </div>
+      <AdminPanel className="p-4 sm:p-5 xl:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Signal summary</div>
+            <p className="mt-1 text-sm text-slate-400">Compact AI and fallback counters kept above the session review workspace.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill tone="neutral">{data.summary.aiChecks} total checks</StatusPill>
+            <StatusPill tone="amber">{data.summary.failedOpenRate}% failed-open</StatusPill>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:gap-3 xl:grid-cols-3 2xl:grid-cols-6">
+          <AdminMetricCardCompact label="Seat page checks" value={isLoading ? "..." : data.summary.seatPageChecks.toString()} tone="cyan" />
+          <AdminMetricCardCompact label="Payment pre-checkout checks" value={isLoading ? "..." : data.summary.paymentChecks.toString()} tone="emerald" />
+          <AdminMetricCardCompact label="AI high verdicts" value={isLoading ? "..." : data.summary.aiHigh.toString()} tone="red" />
+          <AdminMetricCardCompact label="Sessions with AI high" value={isLoading ? "..." : data.summary.sessionsWithAiHigh.toString()} tone="amber" />
+          <AdminMetricCardCompact label="AI coverage" value={isLoading ? "..." : `${data.summary.aiCoverageRate}%`} tone="cyan" />
+          <AdminMetricCardCompact label="AI vs System" value={isLoading ? "..." : data.summary.aiBlockedMismatchCount.toString()} tone="amber" />
+          <AdminMetricCardCompact label="Failed-open rate" value={isLoading ? "..." : `${data.summary.failedOpenRate}%`} tone="amber" />
+          <AdminMetricCardCompact label="Decision mix" value={isLoading ? "..." : `${data.summary.allowed}/${data.summary.warned}/${data.summary.blocked}`} tone="neutral" />
+        </div>
+      </AdminPanel>
 
       {error ? (
         <AdminPanel>
@@ -215,11 +262,11 @@ export default function AISecurityPage() {
         </AdminPanel>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[312px_minmax(0,1fr)] 2xl:grid-cols-[340px_minmax(0,1fr)]">
+      <div className="grid gap-4 sm:gap-6 2xl:grid-cols-[320px_minmax(0,1fr)]">
         <AdminPanel className="overflow-hidden">
           <AdminPanelHeader
-            title="Security Session List"
-            description="Grouped sessions with latest decision, AI verdict, and recent activity."
+            title="Session List"
+            description="Grouped sessions with latest decision, AI verdict, and enforcement source."
             action={
               <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                 <span>{filteredSessions.length} sessions</span>
@@ -234,16 +281,21 @@ export default function AISecurityPage() {
               </div>
             }
           />
-          <div className="grid gap-4 border-b border-white/6 px-4 py-4 sm:px-5 xl:grid-cols-1 2xl:grid-cols-2">
+          <div className="border-b border-white/6 px-4 py-4 sm:px-5">
+            <FilterGroup label="Quick filter" value={quickFilter} items={quickFilters} onChange={setQuickFilter} />
+          </div>
+          <div className="grid gap-3 border-b border-white/6 px-4 py-3 sm:gap-4 sm:px-5 sm:py-4">
             <FilterGroup label="Decision" value={filter} items={decisionFilters} onChange={setFilter} />
             <FilterGroup label="AI verdict" value={aiRiskFilter} items={aiFilters} onChange={setAiRiskFilter} />
-            <FilterGroup label="Step" value={stepFilter} items={stepFilters} onChange={setStepFilter} />
-            <FilterGroup label="Risk status" value={riskStatusFilter} items={statusFilters} onChange={setRiskStatusFilter} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FilterGroup label="Step" value={stepFilter} items={stepFilters} onChange={setStepFilter} />
+              <FilterGroup label="Risk status" value={riskStatusFilter} items={statusFilters} onChange={setRiskStatusFilter} />
+            </div>
           </div>
           <SecuritySessionList
             sessions={filteredSessions}
             selectedSessionId={activeSessionId}
-            onSelect={setSelectedSessionId}
+            onSelect={setManualSelectedSessionId}
             locale={locale}
             isLoading={isLoading}
             emptyLabel="No sessions match the current filters."
@@ -253,5 +305,13 @@ export default function AISecurityPage() {
         <SecuritySessionDetail session={selectedSession} locale={locale} isLoading={isLoading} />
       </div>
     </div>
+  );
+}
+
+export default function AISecurityPage() {
+  return (
+    <Suspense>
+      <AISecurityContent />
+    </Suspense>
   );
 }

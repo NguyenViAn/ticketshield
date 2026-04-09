@@ -16,6 +16,8 @@ export type SecurityScoreLabel = "Low" | "Medium" | "High";
 export type AiRiskLevel = "low" | "warning" | "high";
 export type AiRiskStep = "seat_page" | "payment_pre_checkout";
 export type AiRiskCheckStatus = "passed" | "failed_open";
+export type EnforcementSource = "ai" | "system_rule" | "heuristic" | "mixed" | "none";
+export type FinalOutcome = "checkout_success" | "checkout_failed" | "blocked" | "in_progress" | "warning_acknowledged";
 
 export interface SecurityTimelineEvent {
   id: string;
@@ -73,6 +75,10 @@ export interface SecuritySession {
   totalEvents: number;
   checkoutRetries: number;
   seatsTouched: number;
+  isSuspicious: boolean;
+  latestEventType: BookingEventType;
+  finalOutcome: FinalOutcome;
+  enforcementSource: EnforcementSource;
   metrics: SecuritySessionMetrics;
   ai: SecuritySessionAiOverview;
   events: SecurityTimelineEvent[];
@@ -259,6 +265,55 @@ function shouldResolveSuccessfulSession({
   );
 }
 
+function inferEnforcementSource({
+  checkoutRestricted,
+  rapidSeatSwitchDetected,
+  repeatedCheckoutAttempts,
+  hasAiHigh,
+  hasAiWarning,
+  decision,
+}: {
+  checkoutRestricted: boolean;
+  rapidSeatSwitchDetected: boolean;
+  repeatedCheckoutAttempts: boolean;
+  hasAiHigh: boolean;
+  hasAiWarning: boolean;
+  decision: SecurityDecision;
+}): EnforcementSource {
+  if (decision === "allow") return "none";
+
+  const systemRule = checkoutRestricted;
+  const heuristic = rapidSeatSwitchDetected || repeatedCheckoutAttempts;
+  const ai = hasAiHigh || hasAiWarning;
+  const sources = [systemRule, heuristic, ai].filter(Boolean).length;
+
+  if (sources >= 2) return "mixed";
+  if (systemRule) return "system_rule";
+  if (ai) return "ai";
+  if (heuristic) return "heuristic";
+  return "none";
+}
+
+function inferFinalOutcome({
+  latestEventType,
+  decision,
+  checkoutRestricted,
+  hasAiWarning,
+  warningAccepted,
+}: {
+  latestEventType: BookingEventType;
+  decision: SecurityDecision;
+  checkoutRestricted: boolean;
+  hasAiWarning: boolean;
+  warningAccepted: boolean;
+}): FinalOutcome {
+  if (decision === "block" || checkoutRestricted) return "blocked";
+  if (latestEventType === "checkout_success") return "checkout_success";
+  if (latestEventType === "checkout_failed") return "checkout_failed";
+  if (hasAiWarning && warningAccepted) return "warning_acknowledged";
+  return "in_progress";
+}
+
 export async function fetchSecurityBookingEvents(supabase: SupabaseClient, limit = 1000): Promise<BookingEvent[]> {
   const { data, error } = await supabase
     .from("booking_events")
@@ -389,7 +444,28 @@ export function buildSecuritySessions(events: BookingEvent[], matches: Match[], 
           }
         : inferredDecision;
 
-      return {
+      const anyWarningAccepted = orderedEvents.some((event) => getWarningAccepted(event));
+      const enforcementSource = resolvedSuccessfulSession
+        ? "none" as const
+        : inferEnforcementSource({
+            checkoutRestricted,
+            rapidSeatSwitchDetected,
+            repeatedCheckoutAttempts,
+            hasAiHigh,
+            hasAiWarning,
+            decision,
+          });
+      const finalOutcome = resolvedSuccessfulSession
+        ? "checkout_success" as const
+        : inferFinalOutcome({
+            latestEventType: latestEvent.event_type,
+            decision,
+            checkoutRestricted,
+            hasAiWarning,
+            warningAccepted: anyWarningAccepted,
+          });
+
+      const sessionResult: SecuritySession = {
         id: rawSessionId,
         rawSessionId,
         sessionId: getPublicSessionId(rawSessionId),
@@ -407,6 +483,10 @@ export function buildSecuritySessions(events: BookingEvent[], matches: Match[], 
         totalEvents: orderedEvents.length,
         checkoutRetries,
         seatsTouched: seatIdsTouched.size || selectedSeatsPeak,
+        isSuspicious: false,
+        latestEventType: latestEvent.event_type,
+        finalOutcome,
+        enforcementSource,
         metrics: {
           totalSeatChanges,
           selectedSeatsPeak,
@@ -442,7 +522,10 @@ export function buildSecuritySessions(events: BookingEvent[], matches: Match[], 
           riskCheckStatus: event.event_type === "ai_risk_checked" ? getAiRiskCheckStatus(event) : null,
           warningAccepted: event.event_type === "ai_risk_checked" ? getWarningAccepted(event) : false,
         })),
-      } satisfies SecuritySession;
+      };
+
+      sessionResult.isSuspicious = isSuspiciousSession(sessionResult);
+      return sessionResult;
     })
     .sort((left, right) => {
       const aiRiskDiff = getAiRiskRank(right.ai.latestAiRiskLevel) - getAiRiskRank(left.ai.latestAiRiskLevel);
@@ -488,6 +571,24 @@ export function buildDailyTrend(values: string[], days = 7) {
   return buckets;
 }
 
+export function isSuspiciousSession(session: SecuritySession): boolean {
+  return (
+    session.decision === "warn" ||
+    session.decision === "block" ||
+    session.ai.latestAiRiskLevel === "warning" ||
+    session.ai.latestAiRiskLevel === "high" ||
+    session.ai.latestRiskCheckStatus === "failed_open"
+  );
+}
+
+export function buildSuspiciousSessions(sessions: SecuritySession[]): SecuritySession[] {
+  return sessions.filter((session) => session.isSuspicious);
+}
+
+export function buildTopSuspiciousSessions(sessions: SecuritySession[], limit = 6): SecuritySession[] {
+  return buildSuspiciousSessions(sessions).slice(0, limit);
+}
+
 export function summarizeSecurity(sessions: SecuritySession[]) {
   const warned = sessions.filter((item) => item.decision === "warn").length;
   const blocked = sessions.filter((item) => item.decision === "block").length;
@@ -505,5 +606,52 @@ export function summarizeSecurity(sessions: SecuritySession[]) {
   );
   const sessionsWithAiHigh = sessions.filter((item) => item.ai.hasAiHigh).length;
 
-  return { monitored, warned, blocked, avgRisk, aiChecks, aiLow, aiWarning, aiHigh, aiFailedOpen, sessionsWithAiHigh };
+  const sessionsWithAiCheck = sessions.filter((item) => item.ai.aiCheckCount > 0).length;
+  const noAiCheckSessions = monitored - sessionsWithAiCheck;
+  const aiCoverageRate = monitored > 0 ? Math.round((sessionsWithAiCheck / monitored) * 100) : 0;
+  const aiBlockedMismatchCount = sessions.filter(
+    (item) =>
+      item.ai.latestAiRiskLevel === "low" &&
+      (item.decision === "block" || item.decision === "warn") &&
+      item.enforcementSource !== "ai",
+  ).length;
+  const failedOpenSessions = sessions.filter(
+    (item) => item.ai.latestRiskCheckStatus === "failed_open",
+  ).length;
+  const failedOpenRate = monitored > 0 ? Math.round((failedOpenSessions / monitored) * 100) : 0;
+  const ruleWarnAiLowCount = sessions.filter(
+    (item) => item.decision === "warn" && item.ai.latestAiRiskLevel === "low",
+  ).length;
+  const allowed = Math.max(monitored - warned - blocked, 0);
+
+  const seatPageChecks = sessions.reduce(
+    (sum, item) => sum + item.events.filter((e) => e.step === "seat_page").length,
+    0,
+  );
+  const paymentChecks = sessions.reduce(
+    (sum, item) => sum + item.events.filter((e) => e.step === "payment_pre_checkout").length,
+    0,
+  );
+
+  return {
+    monitored,
+    warned,
+    blocked,
+    allowed,
+    avgRisk,
+    aiChecks,
+    aiLow,
+    aiWarning,
+    aiHigh,
+    aiFailedOpen,
+    sessionsWithAiHigh,
+    noAiCheckSessions,
+    aiCoverageRate,
+    aiBlockedMismatchCount,
+    failedOpenSessions,
+    failedOpenRate,
+    ruleWarnAiLowCount,
+    seatPageChecks,
+    paymentChecks,
+  };
 }

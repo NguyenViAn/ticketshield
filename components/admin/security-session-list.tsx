@@ -2,7 +2,7 @@
 
 import { Clock3 } from "lucide-react";
 
-import { StatusPill } from "@/components/admin/admin-primitives";
+import { EnforcementBadge, StatusPill } from "@/components/admin/admin-primitives";
 import type { SecurityDecision, SecuritySession } from "@/lib/admin-security";
 
 function formatDate(value: string, locale: string) {
@@ -21,10 +21,34 @@ function decisionTone(decision: SecurityDecision) {
 }
 
 function aiTone(level: SecuritySession["ai"]["latestAiRiskLevel"], status: SecuritySession["ai"]["latestRiskCheckStatus"]) {
-  if (status === "failed_open") return "neutral" as const;
+  if (status === "failed_open") return "amber" as const;
   if (level === "high") return "red" as const;
   if (level === "warning") return "amber" as const;
   if (level === "low") return "emerald" as const;
+  return "neutral" as const;
+}
+
+function aiLabel(level: SecuritySession["ai"]["latestAiRiskLevel"], status: SecuritySession["ai"]["latestRiskCheckStatus"]) {
+  if (status === "failed_open") return "Failed open";
+  if (level) return level;
+  return "No AI check";
+}
+
+function finalOutcomeLabel(outcome: SecuritySession["finalOutcome"]) {
+  const labels: Record<SecuritySession["finalOutcome"], string> = {
+    checkout_success: "Success",
+    checkout_failed: "Failed",
+    blocked: "Blocked",
+    in_progress: "In progress",
+    warning_acknowledged: "Warning acknowledged",
+  };
+  return labels[outcome];
+}
+
+function finalOutcomeTone(outcome: SecuritySession["finalOutcome"]) {
+  if (outcome === "checkout_success") return "emerald" as const;
+  if (outcome === "blocked" || outcome === "checkout_failed") return "red" as const;
+  if (outcome === "warning_acknowledged") return "amber" as const;
   return "neutral" as const;
 }
 
@@ -68,7 +92,7 @@ export function SecuritySessionList({
   }
 
   return (
-    <div className="max-h-[calc(100vh-14rem)] space-y-3 overflow-y-auto p-4 xl:p-4 2xl:max-h-[calc(100vh-16rem)] 2xl:p-5">
+    <div className="space-y-2 overflow-y-auto p-3 sm:space-y-3 sm:p-4 xl:p-4 2xl:max-h-[calc(100vh-16rem)] 2xl:p-5">
       {sessions.map((session) => {
         const selected = selectedSessionId === session.id;
 
@@ -77,7 +101,7 @@ export function SecuritySessionList({
             key={session.id}
             type="button"
             onClick={() => onSelect(session.id)}
-            className={`admin-focus-ring w-full rounded-[24px] border p-3.5 text-left transition-all 2xl:rounded-[26px] 2xl:p-4 ${
+            className={`admin-focus-ring w-full rounded-[20px] border p-3 text-left transition-all sm:rounded-[24px] sm:p-3.5 2xl:rounded-[26px] 2xl:p-4 ${
               selected
                 ? "border-cyan-500/18 bg-[linear-gradient(180deg,rgba(18,34,43,0.98),rgba(17,28,36,0.98))] shadow-[0_0_0_1px_rgba(34,211,238,0.18),0_18px_34px_-28px_rgba(0,0,0,0.42)]"
                 : "border-white/6 bg-[#181e27] hover:border-cyan-500/10 hover:bg-[#1c232d]"
@@ -101,46 +125,28 @@ export function SecuritySessionList({
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3">
-              <div className="grid gap-3 xl:grid-cols-1 2xl:grid-cols-2">
-                <div className="rounded-[18px] border border-white/6 bg-white/[0.03] px-3 py-3 2xl:rounded-[20px]">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Rule-based</div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <StatusPill tone={decisionTone(session.decision)}>{session.status}</StatusPill>
-                    <span className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{session.scoreLabel}</span>
-                  </div>
-                  <div className="mt-2 line-clamp-2 text-sm leading-6 text-slate-300">{session.reason}</div>
-                </div>
+            <div className="mt-3 line-clamp-2 text-sm leading-6 text-slate-300">{session.reason}</div>
 
-                <div className="rounded-[18px] border border-white/6 bg-white/[0.03] px-3 py-3 2xl:rounded-[20px]">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Latest AI</div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <StatusPill tone={aiTone(session.ai.latestAiRiskLevel, session.ai.latestRiskCheckStatus)}>
-                      {session.ai.latestRiskCheckStatus === "failed_open"
-                        ? "Failed open"
-                        : session.ai.latestAiRiskLevel ?? "No AI check"}
-                    </StatusPill>
-                    <span className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
-                      {typeof session.ai.latestAiConfidence === "number"
-                        ? `${(session.ai.latestAiConfidence * 100).toFixed(1)}%`
-                        : "--"}
-                    </span>
-                  </div>
-                  <div className="mt-2 text-xs leading-5 text-slate-400">
-                    {session.ai.latestAiCheckedAt
-                      ? `Checked ${formatDate(session.ai.latestAiCheckedAt, locale)}`
-                      : "No AI verdict recorded"}
-                  </div>
-                </div>
-              </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <StatusPill tone={aiTone(session.ai.latestAiRiskLevel, session.ai.latestRiskCheckStatus)}>
+                {aiLabel(session.ai.latestAiRiskLevel, session.ai.latestRiskCheckStatus)}
+              </StatusPill>
+              <span>{session.scoreLabel}</span>
+              <span className="h-1 w-1 rounded-full bg-slate-600" />
+              <span>{session.score} score</span>
+              <span className="h-1 w-1 rounded-full bg-slate-600" />
+              <span>{session.checkoutRetries} retries</span>
+            </div>
 
-              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                <span>{session.totalEvents} events</span>
-                <span className="h-1 w-1 rounded-full bg-slate-600" />
-                <span>{session.seatsTouched} seats touched</span>
-                <span className="h-1 w-1 rounded-full bg-slate-600" />
-                <span>{session.checkoutRetries} retries</span>
-              </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <EnforcementBadge source={session.enforcementSource} />
+              <StatusPill tone={finalOutcomeTone(session.finalOutcome)}>
+                {finalOutcomeLabel(session.finalOutcome)}
+              </StatusPill>
+              <span className="h-1 w-1 rounded-full bg-slate-600" />
+              <span>{session.totalEvents} events</span>
+              <span className="h-1 w-1 rounded-full bg-slate-600" />
+              <span>{session.seatsTouched} seats</span>
             </div>
           </button>
         );
