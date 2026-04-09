@@ -1,5 +1,6 @@
 import HomePageClient from "@/components/home/home-page-client";
 import { fetchFeaturedMatches } from "@/lib/services/matches";
+import { hasSupabaseEnv } from "@/utils/supabase/env";
 import { createClient } from "@/utils/supabase/server";
 
 export default async function HomePage({
@@ -8,6 +9,17 @@ export default async function HomePage({
   params: Promise<{ locale: string }>;
 }) {
   await params;
+
+  if (!hasSupabaseEnv()) {
+    return (
+      <HomePageClient
+        initialFeaturedMatches={[]}
+        initialMatchCount={0}
+        initialTicketCount={0}
+      />
+    );
+  }
+
   const supabase = await createClient();
 
   const [

@@ -5,9 +5,14 @@ import { notFound } from "next/navigation";
 import { BookingWorkspace } from "@/components/seats/booking-workspace";
 import { Link } from "@/i18n/routing";
 import { resolveLeagueLogo } from "@/lib/logo-resolver";
+import { hasSupabaseEnv } from "@/utils/supabase/env";
 import { createClient } from "@/utils/supabase/server";
 
 export default async function SeatsPage({ params }: { params: Promise<{ matchId: string }> | { matchId: string } }) {
+  if (!hasSupabaseEnv()) {
+    return notFound();
+  }
+
   const supabase = await createClient();
   const t = await getTranslations("SeatsPage");
   const locale = await getLocale();
