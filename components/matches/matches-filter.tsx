@@ -1,29 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Filter, RotateCcw, Search, Shield, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { fetchTeamsByLeague } from "@/lib/services/matches";
+import { fetchLeagueNames, fetchStadiumNames, fetchTeamsByLeague } from "@/lib/services/matches";
 import { createClient } from "@/utils/supabase/client";
-
-const LEAGUE_OPTIONS = [
-  { value: "Premier League 24/25", label: "Premier League" },
-  { value: "Champions League", label: "Champions League" },
-  { value: "La Liga", label: "La Liga" },
-  { value: "Serie A", label: "Serie A" },
-  { value: "V-League 2024/25", label: "V-League 2024/25" },
-];
-
-const STADIUM_OPTIONS = [
-  { value: "Emirates Stadium", label: "Emirates Stadium" },
-  { value: "Santiago Bernabeu", label: "Santiago Bernabeu" },
-  { value: "Old Trafford", label: "Old Trafford" },
-  { value: "Camp Nou", label: "Camp Nou" },
-  { value: "Sân vận động Hàng Đẫy", label: "Sân Hàng Đẫy" },
-  { value: "Sân vận động Pleiku", label: "Sân Pleiku" },
-];
 
 const SECURITY_LEVELS = ["All", "Ultra", "Maximum", "High", "Standard"] as const;
 
@@ -32,11 +15,14 @@ export function MatchesFilter() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const t = useTranslations("MatchesFilter");
+  const supabase = useMemo(() => createClient(), []);
 
   const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
+  const [availableLeagues, setAvailableLeagues] = useState<string[]>([]);
+  const [availableStadiums, setAvailableStadiums] = useState<string[]>([]);
   const [availableTeams, setAvailableTeams] = useState<string[]>([]);
+  const [isLoadingFilters, setIsLoadingFilters] = useState(false);
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
-  const supabase = createClient();
 
   const activeLeague = searchParams.get("league") || "All";
   const activeStadium = searchParams.get("stadium") || "All";
@@ -85,6 +71,38 @@ export function MatchesFilter() {
   useEffect(() => {
     let isMounted = true;
 
+    const loadFilterOptions = async () => {
+      setIsLoadingFilters(true);
+
+      try {
+        const [leagues, stadiums] = await Promise.all([
+          fetchLeagueNames(supabase),
+          fetchStadiumNames(supabase),
+        ]);
+
+        if (isMounted) {
+          setAvailableLeagues(leagues);
+          setAvailableStadiums(stadiums);
+        }
+      } catch (error) {
+        console.error("Error fetching filter options:", error);
+      } finally {
+        if (isMounted) {
+          setIsLoadingFilters(false);
+        }
+      }
+    };
+
+    void loadFilterOptions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [supabase]);
+
+  useEffect(() => {
+    let isMounted = true;
+
     const loadTeams = async () => {
       setIsLoadingTeams(true);
 
@@ -102,7 +120,7 @@ export function MatchesFilter() {
       }
     };
 
-    loadTeams();
+    void loadTeams();
 
     return () => {
       isMounted = false;
@@ -110,10 +128,10 @@ export function MatchesFilter() {
   }, [activeLeague, supabase]);
 
   const fieldClassName =
-    "w-full rounded-[18px] border border-white/10 bg-[#071b14] px-4 py-3 text-sm text-slate-100 outline-none transition-all focus:border-emerald-400/40 focus:bg-[#082119] focus:ring-4 focus:ring-emerald-500/10";
+    "w-full rounded-[18px] border border-white/12 bg-white/[0.07] px-4 py-3 text-sm text-slate-100 outline-none transition-all focus:border-emerald-400/40 focus:bg-white/[0.1] focus:ring-4 focus:ring-emerald-500/10";
 
   return (
-    <div className="overflow-hidden rounded-[30px] border border-emerald-400/10 bg-[linear-gradient(180deg,rgba(6,24,17,0.96),rgba(3,16,11,0.98))] shadow-[0_28px_72px_-46px_rgba(0,0,0,0.82)]">
+    <div className="overflow-hidden rounded-[30px] border border-emerald-400/10 bg-[linear-gradient(180deg,rgba(30,41,59,0.82),rgba(15,23,42,0.92))] shadow-[0_28px_72px_-46px_rgba(0,0,0,0.58)]">
       <div className="border-b border-white/8 px-5 py-5">
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-400/14 bg-emerald-400/10 text-emerald-300">
@@ -152,12 +170,13 @@ export function MatchesFilter() {
           <select
             value={activeLeague}
             onChange={(event) => handleFilterChange("league", event.target.value)}
-            className={fieldClassName}
+            disabled={isLoadingFilters}
+            className={`${fieldClassName} disabled:cursor-not-allowed disabled:opacity-50`}
           >
             <option value="All">{t("allLeagues")}</option>
-            {LEAGUE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            {availableLeagues.map((league) => (
+              <option key={league} value={league}>
+                {league}
               </option>
             ))}
           </select>
@@ -195,12 +214,13 @@ export function MatchesFilter() {
           <select
             value={activeStadium}
             onChange={(event) => handleFilterChange("stadium", event.target.value)}
-            className={fieldClassName}
+            disabled={isLoadingFilters}
+            className={`${fieldClassName} disabled:cursor-not-allowed disabled:opacity-50`}
           >
             <option value="All">{t("allStadiums")}</option>
-            {STADIUM_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            {availableStadiums.map((stadium) => (
+              <option key={stadium} value={stadium}>
+                {stadium}
               </option>
             ))}
           </select>
@@ -223,7 +243,7 @@ export function MatchesFilter() {
                   className={`rounded-[18px] border px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] transition-all ${
                     isActive
                       ? "border-emerald-400/30 bg-emerald-400/12 text-emerald-200"
-                      : "border-white/10 bg-[#071b14] text-slate-400 hover:border-emerald-400/18 hover:text-slate-100"
+                      : "border-white/10 bg-white/[0.05] text-slate-300 hover:border-emerald-400/18 hover:text-slate-100"
                   }`}
                 >
                   {level === "All" ? t("allLevels") : `${t("levelPrefix")} ${level}`}
@@ -233,7 +253,7 @@ export function MatchesFilter() {
           </div>
         </div>
 
-        <div className="rounded-[24px] border border-emerald-400/12 bg-[linear-gradient(180deg,rgba(12,49,35,0.94),rgba(7,28,20,0.97))] p-4">
+        <div className="theme-inset-accent rounded-[24px] p-4">
           <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-300">
             {t("quick_reset_title")}
           </div>

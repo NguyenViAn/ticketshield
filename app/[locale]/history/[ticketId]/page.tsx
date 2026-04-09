@@ -10,6 +10,7 @@ import {
   Download,
   ShieldAlert,
   ShieldCheck,
+  Ticket,
   XCircle,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
@@ -26,6 +27,8 @@ import {
 import { useAuth } from "@/components/providers/auth-provider";
 import { createClient } from "@/utils/supabase/client";
 import type { TicketWithMatch } from "@/types";
+
+type BookingMate = Pick<TicketWithMatch, "id" | "seat" | "status" | "price_paid" | "booking_group_id" | "created_at">;
 
 function QRCodeSVG({ data, size = 164 }: { data: string; size?: number }) {
   const cells = 21;
@@ -126,6 +129,7 @@ export default function TicketDetailPage() {
   const isVietnamese = locale.startsWith("vi");
 
   const [ticket, setTicket] = useState<TicketWithMatch | null>(null);
+  const [bookingTickets, setBookingTickets] = useState<BookingMate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -155,11 +159,37 @@ export default function TicketDetailPage() {
         return;
       }
 
-      setTicket(data as unknown as TicketWithMatch);
+      const currentTicket = data as unknown as TicketWithMatch;
+      setTicket(currentTicket);
+
+      const bookingGroupId = currentTicket.booking_group_id ?? currentTicket.id;
+      const { data: bookingData, error: bookingError } = await supabase
+        .from("tickets")
+        .select("id, seat, status, price_paid, booking_group_id, created_at")
+        .eq("user_id", user.id)
+        .or(`booking_group_id.eq.${bookingGroupId},id.eq.${bookingGroupId}`)
+        .order("created_at", { ascending: true });
+
+      if (bookingError) {
+        console.warn("Failed to fetch booking group:", bookingError.message);
+        setBookingTickets([
+          {
+            id: currentTicket.id,
+            seat: currentTicket.seat,
+            status: currentTicket.status,
+            price_paid: currentTicket.price_paid,
+            booking_group_id: currentTicket.booking_group_id,
+            created_at: currentTicket.created_at,
+          },
+        ]);
+      } else {
+        setBookingTickets((bookingData ?? []) as BookingMate[]);
+      }
+
       setIsLoading(false);
     };
 
-    fetchTicket();
+    void fetchTicket();
   }, [ticketId, isLoggedIn, supabase, router, locale, user]);
 
   const handleCancelTicket = async () => {
@@ -187,6 +217,11 @@ export default function TicketDetailPage() {
       alert(t("cancel_error") + (inventoryError?.message ?? "Unable to restore seat inventory."));
     } else {
       setTicket({ ...ticket, status: "Cancelled" });
+      setBookingTickets((currentTickets) =>
+        currentTickets.map((currentTicket) =>
+          currentTicket.id === ticket.id ? { ...currentTicket, status: "Cancelled" } : currentTicket,
+        ),
+      );
       setShowCancelConfirm(false);
     }
 
@@ -207,11 +242,11 @@ export default function TicketDetailPage() {
       <main className="page-premium">
         <div className="mx-auto max-w-7xl px-4 pb-16 pt-24 sm:px-6 lg:px-8">
           <div className="space-y-6">
-            <div className="h-12 w-44 animate-pulse rounded-2xl border border-white/10 bg-white/5  " />
-            <div className="h-52 animate-pulse rounded-[34px] border border-white/10 bg-white/5  " />
+            <div className="h-12 w-44 animate-pulse rounded-2xl border border-white/10 bg-white/5" />
+            <div className="h-52 animate-pulse rounded-[34px] border border-white/10 bg-white/5" />
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_420px]">
-              <div className="h-[520px] animate-pulse rounded-[30px] border border-white/10 bg-white/5  " />
-              <div className="h-[520px] animate-pulse rounded-[30px] border border-white/10 bg-white/5  " />
+              <div className="h-[520px] animate-pulse rounded-[30px] border border-white/10 bg-white/5" />
+              <div className="h-[520px] animate-pulse rounded-[30px] border border-white/10 bg-white/5" />
             </div>
           </div>
         </div>
@@ -228,6 +263,10 @@ export default function TicketDetailPage() {
     : t("unknown_match");
   const purchaseDate = new Date(ticket.created_at);
   const matchDate = ticket.matches ? new Date(ticket.matches.date) : null;
+  const bookingGroupId = ticket.booking_group_id ?? ticket.id;
+  const groupSeats = bookingTickets.map((bookingTicket) => bookingTicket.seat).join(", ");
+  const bookingTotal = bookingTickets.reduce((sum, bookingTicket) => sum + bookingTicket.price_paid, 0);
+  const bookingStatus = bookingTickets.every((bookingTicket) => bookingTicket.status === "Cancelled") ? "Cancelled" : "Active";
   const matchDay = matchDate
     ? new Intl.DateTimeFormat(isVietnamese ? "vi-VN" : "en-US", {
         day: "2-digit",
@@ -248,7 +287,7 @@ export default function TicketDetailPage() {
         <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}>
           <Link href="/history" className="theme-link-accent inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em]">
             <ArrowLeft className="h-4 w-4" />
-            {t("back_to_wallet")}
+            Back to bookings
           </Link>
         </motion.div>
 
@@ -258,13 +297,13 @@ export default function TicketDetailPage() {
           </div>
           <h1 className="mt-8 text-5xl font-heading font-black uppercase tracking-[-0.05em] text-emerald-300 sm:text-6xl lg:text-7xl">
             {ticket.status === "Valid"
-              ? t("headline_valid")
+              ? "Ticket ready"
               : ticket.status === "Cancelled"
-                ? t("headline_cancelled")
-                : t("headline_updated")}
+                ? "Ticket cancelled"
+                : "Ticket updated"}
           </h1>
-          <p className="mt-5 text-sm uppercase tracking-[0.28em] text-slate-400 ">
-            {t("order_id")}: #{ticket.id.slice(0, 8).toUpperCase()}
+          <p className="mt-5 text-sm uppercase tracking-[0.28em] text-slate-400">
+            Ticket #{ticket.id.slice(0, 8).toUpperCase()} in group #{bookingGroupId.slice(0, 8).toUpperCase()}
           </p>
           <div className="mx-auto mt-4 h-1 w-28 rounded-full bg-emerald-400" />
         </section>
@@ -275,80 +314,88 @@ export default function TicketDetailPage() {
               <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_260px]">
                 <div>
                   <div className="text-[12px] font-bold uppercase tracking-[0.28em] text-emerald-300">
-                    {t("verified_badge")}
+                    Verified ticket
                   </div>
-                  <h2 className="mt-4 max-w-xl text-4xl font-heading font-black uppercase leading-[1.02] tracking-[-0.04em] text-white ">
+                  <h2 className="mt-4 max-w-xl text-4xl font-heading font-black uppercase leading-[1.02] tracking-[-0.04em] text-white">
                     {matchTitle}
                   </h2>
 
                   <div className="mt-8 grid gap-5 sm:grid-cols-2">
-                    <MatchdayDetailBlock label={t("date_label")} value={matchDay} />
-                    <MatchdayDetailBlock label={t("kickoff_label")} value={kickoffTime} />
-                    <MatchdayDetailBlock label={t("stadium")} value={ticket.matches?.stadium || t("stadium_updating")} />
+                    <MatchdayDetailBlock label={t("match_date")} value={matchDay} />
+                    <MatchdayDetailBlock label="Kickoff" value={kickoffTime} />
+                    <MatchdayDetailBlock label={t("stadium")} value={ticket.matches?.stadium || "Venue updating"} />
                     <MatchdayDetailBlock label={t("seat")} value={ticket.seat} />
                   </div>
 
                   <div className="mt-8 border-t border-white/10 pt-5">
-                    <div className="inline-flex items-center gap-2 text-sm uppercase tracking-[0.18em] text-slate-300 ">
+                    <div className="inline-flex items-center gap-2 text-sm uppercase tracking-[0.18em] text-slate-300">
                       <ShieldCheck className="h-4 w-4 text-emerald-300" />
-                      {t("verified_by")}
+                      AI validation hash linked to this seat
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col items-center justify-center rounded-[28px] border border-white/10 bg-white/5 p-5 text-center  ">
-                  <div className="rounded-[24px] bg-white p-4 shadow-[0_20px_50px_-24px_rgba(15,23,42,0.22)] ">
+                <div className="flex flex-col items-center justify-center rounded-[28px] border border-white/10 bg-white/5 p-5 text-center">
+                  <div className="rounded-[24px] bg-white p-4 shadow-[0_20px_50px_-24px_rgba(15,23,42,0.22)]">
                     <QRCodeSVG data={ticket.ai_validation_hash} />
                   </div>
-                  <div className="mt-4 font-mono text-sm text-slate-400 ">#{ticket.id.slice(0, 8).toUpperCase()}-VALID</div>
+                  <div className="mt-4 font-mono text-sm text-slate-400">#{ticket.id.slice(0, 8).toUpperCase()}-VALID</div>
                 </div>
               </div>
             </MatchdayPanel>
 
             <div className="grid gap-5 md:grid-cols-2">
               <InfoPanel
-                title={t("access_title")}
-                description={t("access_desc")}
+                title="Booking group"
+                description={`This ticket belongs to group ${bookingGroupId.slice(0, 8).toUpperCase()} with ${bookingTickets.length} seat(s): ${groupSeats}.`}
               />
               <InfoPanel
-                title={t("travel_title")}
-                description={
-                  ticket.matches?.stadium
-                    ? t("travel_desc_with_seat", { seat: ticket.seat })
-                    : t("travel_desc_default")
-                }
+                title="Shared booking total"
+                description={`The full booking is currently ${bookingStatus} with a combined value of ${bookingTotal.toLocaleString(locale)} VND.`}
               />
             </div>
           </motion.div>
 
           <motion.aside initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="space-y-5">
-            <MatchdayPanel className="border-emerald-400/12 bg-[linear-gradient(180deg,rgba(8,35,25,0.96),rgba(4,20,14,0.99))] p-6">
+            <MatchdayPanel className="border-emerald-400/14 bg-[linear-gradient(180deg,rgba(20,83,45,0.22),rgba(30,41,59,0.82)_26%,rgba(15,23,42,0.9)_100%)] p-6 shadow-[0_28px_72px_-46px_rgba(0,0,0,0.42)]">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-1 rounded-full bg-emerald-400" />
                 <h3 className="text-2xl font-heading font-black uppercase tracking-[-0.03em] text-white">
-                  {t("order_summary")}
+                  Order summary
                 </h3>
               </div>
 
               <div className="mt-8 space-y-5 text-slate-300">
                 <MatchdaySummaryRow
-                  label={t("ticket_line")}
-                  value={`${ticket.seat} - 1 ${t("ticket_unit")}`}
+                  label="Current seat"
+                  value={ticket.seat}
+                />
+                <MatchdaySummaryRow
+                  label="Booking group"
+                  value={bookingGroupId.slice(0, 8).toUpperCase()}
+                />
+                <MatchdaySummaryRow
+                  label="Seats in group"
+                  value={groupSeats}
                 />
                 <MatchdaySummaryRow
                   label={t("price_paid")}
                   value={`${ticket.price_paid.toLocaleString(locale)} VND`}
                 />
                 <MatchdaySummaryRow
-                  label={t("booked_at")}
+                  label="Booking total"
+                  value={`${bookingTotal.toLocaleString(locale)} VND`}
+                />
+                <MatchdaySummaryRow
+                  label="Booked at"
                   value={purchaseDate.toLocaleString(locale)}
                 />
               </div>
 
               <div className="mt-8 border-t border-white/10 pt-6">
                 <div className="flex items-end justify-between gap-3">
-                    <span className="text-xl font-heading font-black uppercase text-white ">
-                    {t("total_paid")}
+                  <span className="text-xl font-heading font-black uppercase text-white">
+                    This ticket
                   </span>
                   <span className="text-4xl font-heading font-black tracking-[-0.04em] text-emerald-300">
                     {ticket.price_paid.toLocaleString(locale)}
@@ -363,19 +410,19 @@ export default function TicketDetailPage() {
                   className="inline-flex h-14 w-full items-center justify-center gap-3 rounded-[18px] bg-emerald-400 px-5 text-sm font-semibold uppercase tracking-[0.2em] text-slate-950 transition-colors hover:bg-emerald-300"
                 >
                   <Download className="h-4 w-4" />
-                  {t("print_or_save")}
+                  Print or save
                 </button>
                 <button
                   type="button"
                   onClick={handleCopyHash}
-                  className="page-button-secondary inline-flex h-14 w-full items-center justify-center gap-3 rounded-[18px] px-5 text-sm font-semibold uppercase tracking-[0.2em] "
+                  className="page-button-secondary inline-flex h-14 w-full items-center justify-center gap-3 rounded-[18px] px-5 text-sm font-semibold uppercase tracking-[0.2em]"
                 >
                   <Copy className="h-4 w-4" />
-                  {copiedHash ? t("copy_hash_done") : t("copy_hash")}
+                  {copiedHash ? "Copied hash" : "Copy AI hash"}
                 </button>
               </div>
 
-              <MatchdayInfoField label={t("ticket_status")} className="mt-5">
+              <MatchdayInfoField label="Ticket status" className="mt-5">
                 <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] ${status.panel} ${status.accent}`}>
                   <StatusIcon className="h-4 w-4" />
                   {isVietnamese ? t(`status_${ticket.status.toLowerCase()}`) : status.title}
@@ -390,21 +437,21 @@ export default function TicketDetailPage() {
                       onClick={() => setShowCancelConfirm(true)}
                       className="text-sm font-semibold uppercase tracking-[0.18em] text-rose-300 transition-colors hover:text-rose-200"
                     >
-                      {t("cancel_this_ticket")}
+                      Cancel this ticket
                     </button>
                   ) : (
                     <div className="rounded-[22px] border border-rose-400/18 bg-rose-400/10 p-4">
-                      <p className="text-sm leading-6 text-slate-300 ">{t("cancel_confirm")}</p>
+                      <p className="text-sm leading-6 text-slate-300">{t("cancel_confirm")}</p>
                       <div className="mt-4 flex flex-wrap gap-3">
                         <NeonButton
                           onClick={handleCancelTicket}
                           disabled={isCancelling}
                           className="rounded-[16px] !bg-rose-500 px-4 text-xs uppercase tracking-[0.18em] text-white hover:!bg-rose-400"
                         >
-                          {isCancelling ? t("cancelling") : t("confirm_cancel_short")}
+                          {isCancelling ? t("cancelling") : "Confirm cancel"}
                         </NeonButton>
-                        <button type="button" onClick={() => setShowCancelConfirm(false)} className="text-sm font-medium text-slate-400 ">
-                          {t("keep_ticket_short")}
+                        <button type="button" onClick={() => setShowCancelConfirm(false)} className="text-sm font-medium text-slate-400">
+                          Keep ticket
                         </button>
                       </div>
                     </div>
@@ -413,9 +460,38 @@ export default function TicketDetailPage() {
               ) : null}
             </MatchdayPanel>
 
+            <MatchdayPanel className="p-5 shadow-[0_20px_54px_-40px_rgba(0,0,0,0.8)]">
+              <div className="text-xl font-heading font-black uppercase tracking-[-0.02em] text-white">
+                Other seats in booking
+              </div>
+              <div className="mt-4 space-y-3">
+                {bookingTickets.map((bookingTicket) => (
+                  <Link
+                    key={bookingTicket.id}
+                    href={`/history/${bookingTicket.id}` as never}
+                    className={`block rounded-[18px] border px-4 py-3 text-sm transition-colors ${
+                      bookingTicket.id === ticket.id
+                        ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                        : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="inline-flex items-center gap-2">
+                        <Ticket className="h-4 w-4" />
+                        {bookingTicket.seat}
+                      </span>
+                      <span className="text-xs uppercase tracking-[0.14em] text-slate-400">
+                        {bookingTicket.status}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </MatchdayPanel>
+
             <Link href="/matches" className="theme-link-accent inline-flex items-center gap-3 text-lg font-semibold uppercase tracking-[0.18em]">
               <ArrowLeft className="h-5 w-5" />
-              {t("back_to_matches")}
+              Back to matches
             </Link>
           </motion.aside>
         </section>
@@ -427,8 +503,8 @@ export default function TicketDetailPage() {
 function InfoPanel({ description, title }: { description: string; title: string }) {
   return (
     <MatchdayPanel className="p-5 shadow-[0_20px_54px_-40px_rgba(0,0,0,0.8)]">
-      <div className="text-xl font-heading font-black uppercase tracking-[-0.02em] text-white ">{title}</div>
-      <p className="mt-3 text-sm leading-7 text-slate-300 ">{description}</p>
+      <div className="text-xl font-heading font-black uppercase tracking-[-0.02em] text-white">{title}</div>
+      <p className="mt-3 text-sm leading-7 text-slate-300">{description}</p>
     </MatchdayPanel>
   );
 }

@@ -9,16 +9,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-emerald-700 text-white shadow-[0_14px_30px_-22px_rgba(5,150,105,0.24)] hover:-translate-y-0.5 hover:bg-emerald-600",
+        default: "bg-emerald-600 text-white shadow-[0_14px_30px_-22px_rgba(16,185,129,0.28)] hover:-translate-y-0.5 hover:bg-emerald-500",
         destructive:
           "bg-destructive text-white shadow-sm hover:-translate-y-0.5 hover:bg-destructive/90 focus-visible:ring-destructive/20  ",
         outline:
-          "border border-border/80 bg-card/90 text-foreground shadow-[0_10px_22px_-20px_rgba(15,23,42,0.14)] hover:-translate-y-0.5 hover:border-emerald-400/24 hover:bg-emerald-500/10    ",
+          "border border-border/80 bg-card/95 text-foreground shadow-[0_10px_22px_-20px_rgba(15,23,42,0.14)] hover:-translate-y-0.5 hover:border-emerald-300/26 hover:bg-white/[0.08]    ",
         secondary:
           "bg-secondary text-secondary-foreground hover:-translate-y-0.5 hover:bg-secondary/80",
         ghost:
-          "text-slate-300 hover:bg-accent/85 hover:text-white   ",
-        link: "rounded-none px-0 text-emerald-300 underline-offset-4 hover:text-emerald-200 hover:underline ",
+          "text-slate-200 hover:bg-accent/85 hover:text-white   ",
+        link: "rounded-none px-0 text-emerald-200 underline-offset-4 hover:text-emerald-100 hover:underline ",
       },
       size: {
         default: "h-10 px-5 py-2.5 has-[>svg]:px-4",

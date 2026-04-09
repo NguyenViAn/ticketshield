@@ -22,8 +22,63 @@ import {
   MatchdayPanelHeader,
   MatchdaySummaryBlock,
 } from "@/components/ui/matchday";
+import {
+  createInitialSeatSessionState,
+  parseSeatSessionState,
+  RISK_SESSION_ID_STORAGE_KEY,
+  RISK_STATE_STORAGE_KEY,
+  type SeatSessionState,
+} from "@/lib/ai/sessionFeatures";
+import { logBookingEvent } from "@/lib/services/booking-events";
 import { createClient } from "@/utils/supabase/client";
-import { getSeatPrice, getTierFromSeatId, isConcreteSeatId } from "@/utils/tickets";
+import {
+  areConcreteSeatIds,
+  areSeatIdsUnique,
+  getSeatSelectionSummary,
+  getSeatsTotalPrice,
+  MAX_BOOKING_SEATS,
+  normalizeSeatIds,
+} from "@/utils/tickets";
+
+type SecureCheckoutResponse = {
+  status: "success" | "warning" | "blocked";
+  riskLevel: "low" | "warning" | "high";
+  confidence: number | null;
+  checkedAt: string;
+  riskCheckStatus: "passed" | "failed_open";
+  bookingGroupId?: string | null;
+  ticketIds?: string[];
+  totalPrice?: number | null;
+  message?: string | null;
+};
+
+function getReadableErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object") {
+    const supabaseError = error as {
+      code?: string;
+      details?: string;
+      hint?: string;
+      message?: string;
+    };
+
+    const segments = [
+      supabaseError.message,
+      supabaseError.details,
+      supabaseError.hint,
+      supabaseError.code ? `Code: ${supabaseError.code}` : undefined,
+    ].filter(Boolean);
+
+    if (segments.length > 0) {
+      return segments.join(" | ");
+    }
+  }
+
+  return "Unable to complete the transaction.";
+}
 
 export default function PaymentPage() {
   return (
@@ -41,16 +96,32 @@ function PaymentContent() {
   const t = useTranslations("PaymentPage");
   const locale = useLocale();
   const matchId = searchParams.get("matchId");
-  const seatId = searchParams.get("seatId");
-  const hasValidSeatSelection = Boolean(matchId && isConcreteSeatId(seatId));
+  const seatIds = useMemo(() => normalizeSeatIds(searchParams.getAll("seatId")), [searchParams]);
+  const hasValidSeatSelection = Boolean(
+    matchId &&
+      seatIds.length >= 1 &&
+      seatIds.length <= MAX_BOOKING_SEATS &&
+      areSeatIdsUnique(seatIds) &&
+      areConcreteSeatIds(seatIds),
+  );
 
   const [securePrice, setSecurePrice] = useState<number>(0);
   const [priceLoading, setPriceLoading] = useState(true);
   const [step, setStep] = useState(1);
-  const [anomalyTriggered, setAnomalyTriggered] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [issuedTicketId, setIssuedTicketId] = useState<string | null>(null);
-  const [issuedHash, setIssuedHash] = useState<string | null>(null);
+  const [issuedTicketIds, setIssuedTicketIds] = useState<string[]>([]);
+  const [issuedBookingGroupId, setIssuedBookingGroupId] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [riskState, setRiskState] = useState<SeatSessionState | null>(null);
+  const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
+  const [securityModal, setSecurityModal] = useState<{
+    type: "warning" | "blocked";
+    message: string;
+    checkedAt: string | null;
+    confidence: number | null;
+    riskLevel: "warning" | "high";
+  } | null>(null);
   const [cardNumber, setCardNumber] = useState("");
   const [expDate, setExpDate] = useState("");
   const [cvc, setCvc] = useState("");
@@ -64,153 +135,254 @@ function PaymentContent() {
   }, [authLoading, isLoggedIn, locale, router]);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const querySessionId = searchParams.get("sessionId");
+    const storedSessionId = window.sessionStorage.getItem(RISK_SESSION_ID_STORAGE_KEY);
+    const activeSessionId = querySessionId || storedSessionId || createInitialSeatSessionState().sessionId;
+    const storedRiskStateRaw = window.sessionStorage.getItem(RISK_STATE_STORAGE_KEY);
+    let storedRiskState: SeatSessionState | null = null;
+
+    if (storedRiskStateRaw) {
+      try {
+        storedRiskState = parseSeatSessionState(JSON.parse(storedRiskStateRaw));
+      } catch (error) {
+        console.warn("Failed to parse stored risk state:", error);
+      }
+    }
+    const baseRiskState =
+      storedRiskState && storedRiskState.sessionId === activeSessionId
+        ? storedRiskState
+        : createInitialSeatSessionState(activeSessionId);
+    const nextRiskState: SeatSessionState = {
+      ...baseRiskState,
+      sessionId: activeSessionId,
+      selectedSeatCount: seatIds.length,
+      paymentPageOpenedAt: baseRiskState.paymentPageOpenedAt ?? Date.now(),
+    };
+
+    window.sessionStorage.setItem(RISK_SESSION_ID_STORAGE_KEY, activeSessionId);
+    window.sessionStorage.setItem(RISK_STATE_STORAGE_KEY, JSON.stringify(nextRiskState));
+    setSessionId(activeSessionId);
+    setRiskState(nextRiskState);
+  }, [searchParams, seatIds.length]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !riskState) {
+      return;
+    }
+
+    window.sessionStorage.setItem(RISK_SESSION_ID_STORAGE_KEY, riskState.sessionId);
+    window.sessionStorage.setItem(RISK_STATE_STORAGE_KEY, JSON.stringify(riskState));
+  }, [riskState]);
+
+  useEffect(() => {
     const fetchBasePrice = async () => {
-      if (!matchId || !isConcreteSeatId(seatId)) {
+      if (!matchId || !hasValidSeatSelection) {
         setPriceLoading(false);
         return;
       }
 
       const { data, error } = await supabase.from("matches").select("base_price").eq("id", matchId).single();
       if (data && !error) {
-        setSecurePrice(getSeatPrice(data.base_price, seatId) ?? 0);
+        setSecurePrice(getSeatsTotalPrice(data.base_price, seatIds));
       }
       setPriceLoading(false);
     };
 
-    fetchBasePrice();
-  }, [matchId, seatId, supabase]);
+    void fetchBasePrice();
+  }, [hasValidSeatSelection, matchId, seatIds, supabase]);
 
   const stepMeta = [
     {
       id: 1,
-      title: t("step_one_title"),
-      detail: t("step_one_detail"),
+      title: "Review seats",
+      detail: "Validate the 1-4 seat selection before checkout.",
     },
     {
       id: 2,
-      title: t("step_two_title"),
-      detail: t("step_two_detail"),
+      title: "Payment details",
+      detail: "Use the demo payment form to trigger secure checkout.",
     },
     {
       id: 3,
-      title: t("step_three_title"),
-      detail: t("step_three_detail"),
+      title: "Booking issued",
+      detail: "Store every seat as one ticket under a booking group.",
     },
   ];
 
-  const trustPoints = [t("trust_point_1"), t("trust_point_2"), t("trust_point_3")];
+  const trustPoints = [
+    "Maximum 4 active seats per user per match.",
+    "Checkout is enforced through a server-side secure route.",
+    "Risk score uses interaction events, not synthetic hashes.",
+  ];
 
-  const handleNextStep = () => {
-    if (!hasValidSeatSelection) return;
+  const handleNextStep = async () => {
+    if (!hasValidSeatSelection) {
+      return;
+    }
 
     if (step === 2) {
       if (!cardNumber.trim() || !expDate.trim() || !cvc.trim() || !cardholder.trim()) {
         return;
       }
-      setAnomalyTriggered(true);
+
+      await submitSecureCheckout();
       return;
     }
 
     setStep((currentStep) => currentStep + 1);
   };
 
-  const verifyHuman = async () => {
-    if (!user || !matchId || !seatId || !isConcreteSeatId(seatId)) {
-      alert(t("error_auth"));
+  const submitSecureCheckout = async (warningAccepted = false) => {
+    if (!user || !matchId || !hasValidSeatSelection || !sessionId) {
+      window.alert(t("error_auth"));
       return;
     }
 
     setIsProcessing(true);
+    setSecurityModal(null);
+    setCheckoutNotice(null);
+    const nextRetryCount = retryCount + 1;
+    setRetryCount(nextRetryCount);
+
+    const baseRiskState = riskState ?? createInitialSeatSessionState(sessionId);
+    const nextRiskState: SeatSessionState = {
+      ...baseRiskState,
+      sessionId,
+      selectedSeatCount: seatIds.length,
+      paymentPageOpenedAt: baseRiskState.paymentPageOpenedAt ?? Date.now(),
+      paymentClickedAt: Date.now(),
+      checkoutAttemptCount: baseRiskState.checkoutAttemptCount + 1,
+    };
+
+    setRiskState(nextRiskState);
+
+    await logBookingEvent(supabase, {
+      eventType: "checkout_attempt",
+      matchId,
+      metadata: {
+        retryCount: nextRetryCount,
+        seatIds,
+        selectedCount: seatIds.length,
+      },
+      seatCount: seatIds.length,
+      sessionId,
+    });
 
     try {
-      const { data: match, error: matchError } = await supabase
-        .from("matches")
-        .select("id, base_price, available_seats")
-        .eq("id", matchId)
-        .single();
-
-      if (matchError || !match) {
-        throw new Error("Unable to validate the selected match.");
-      }
-
-      if (match.available_seats <= 0) {
-        throw new Error("This match is sold out.");
-      }
-
-      const ticketPrice = getSeatPrice(match.base_price, seatId);
-      const selectedTier = getTierFromSeatId(seatId);
-
-      if (!ticketPrice || !selectedTier) {
-        throw new Error("The selected seat is invalid.");
-      }
-
-      const { data: existingTicket, error: existingTicketError } = await supabase
-        .from("tickets")
-        .select("id")
-        .eq("match_id", match.id)
-        .eq("seat", seatId)
-        .in("status", ["Valid", "Used"])
-        .maybeSingle();
-
-      if (existingTicketError) {
-        throw existingTicketError;
-      }
-
-      if (existingTicket) {
-        throw new Error(
-          `Seat ${seatId} has just been taken. Please choose another seat.`
-        );
-      }
-
-      setSecurePrice(ticketPrice);
-
-      const generatedHash = `TS-${Math.random().toString(36).substring(2, 10).toUpperCase()}-${Date.now()}`;
-      const { data, error } = await supabase
-        .from("tickets")
-        .insert([
-          {
-            user_id: user.id,
-            match_id: match.id,
-            seat: seatId,
-            price_paid: ticketPrice,
-            status: "Valid",
-            ai_validation_hash: generatedHash,
-          },
-        ])
-        .select();
-
-      if (error) {
-        throw error;
-      }
-
-      const insertedTicket = data?.[0];
-      const { data: inventoryUpdated, error: inventoryError } = await supabase.rpc("decrement_available_seats", {
-        match_uuid: match.id,
+      const response = await fetch("/api/secure-checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          matchId,
+          seatIds,
+          sessionId,
+          warningAccepted,
+          riskState: nextRiskState,
+        }),
       });
 
-      if (inventoryError || inventoryUpdated === false) {
-        if (insertedTicket?.id) {
-          await supabase.from("tickets").delete().eq("id", insertedTicket.id).eq("user_id", user.id);
-        }
+      const result = (await response.json()) as SecureCheckoutResponse | { error?: string };
 
-        throw (
-          inventoryError ??
-          new Error("Unable to update seat inventory. The transaction has been rolled back.")
-        );
+      if (!response.ok) {
+        throw new Error("error" in result && result.error ? result.error : "Secure checkout failed.");
       }
 
-      setIssuedTicketId(insertedTicket?.id ?? null);
-      setIssuedHash(generatedHash);
-      setAnomalyTriggered(false);
+      if (!("status" in result)) {
+        throw new Error("Unexpected secure checkout response.");
+      }
+
+      const checkedAtMs = Date.parse(result.checkedAt);
+      const syncedRiskState: SeatSessionState = {
+        ...nextRiskState,
+        lastRiskLevel: result.riskLevel,
+        lastRiskConfidence: result.confidence,
+        lastRiskCheckedAt: Number.isNaN(checkedAtMs) ? Date.now() : checkedAtMs,
+      };
+
+      setRiskState(syncedRiskState);
+
+      if (result.status === "warning") {
+        setSecurityModal({
+          type: "warning",
+          message: result.message ?? "Your session looks unusual. Confirm to continue checkout.",
+          checkedAt: result.checkedAt,
+          confidence: result.confidence,
+          riskLevel: "warning",
+        });
+        return;
+      }
+
+      if (result.status === "blocked") {
+        setSecurityModal({
+          type: "blocked",
+          message: result.message ?? "Suspicious booking behaviour detected. Checkout was blocked.",
+          checkedAt: result.checkedAt,
+          confidence: result.confidence,
+          riskLevel: "high",
+        });
+
+        await logBookingEvent(supabase, {
+          eventType: "checkout_failed",
+          matchId,
+          metadata: {
+            retryCount: nextRetryCount,
+            seatIds,
+            selectedCount: seatIds.length,
+          },
+          seatCount: seatIds.length,
+          sessionId,
+        });
+        return;
+      }
+
+      const nextTicketIds = Array.isArray(result.ticketIds) ? result.ticketIds.map(String) : [];
+
+      setIssuedTicketIds(nextTicketIds);
+      setIssuedBookingGroupId(result.bookingGroupId ?? null);
+      setSecurePrice(result.totalPrice ?? securePrice);
+      setSecurityModal(null);
+      setCheckoutNotice(result.riskCheckStatus === "failed_open" ? result.message ?? null : null);
       setStep(3);
+
+      await logBookingEvent(supabase, {
+        eventType: "checkout_success",
+        matchId,
+        metadata: {
+          retryCount: nextRetryCount,
+          seatIds,
+          selectedCount: seatIds.length,
+        },
+        seatCount: seatIds.length,
+        sessionId,
+      });
     } catch (err: unknown) {
-      console.error("Purchase error:", err);
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : "Unable to complete the transaction.";
-      alert(t("error_transaction") + errorMessage);
-      setAnomalyTriggered(false);
+      const errorMessage = getReadableErrorMessage(err);
+      console.warn("Purchase failed:", {
+        message: errorMessage,
+        matchId,
+        seatIds,
+        userId: user.id,
+      });
+
+      await logBookingEvent(supabase, {
+        eventType: "checkout_failed",
+        matchId,
+        metadata: {
+          retryCount: nextRetryCount,
+          seatIds,
+          selectedCount: seatIds.length,
+        },
+        seatCount: seatIds.length,
+        sessionId,
+      });
+
+      window.alert(t("error_transaction") + errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -227,12 +399,12 @@ function PaymentContent() {
           <div className="border-b border-white/8 px-6 py-7 sm:px-8">
             <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/14 bg-emerald-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300">
               <ShieldCheck className="h-3.5 w-3.5" />
-              {t("badge")}
+              Multi-seat secure checkout
             </div>
-            <h1 className="mt-5 text-4xl font-heading font-black uppercase tracking-[-0.04em] text-white  sm:text-5xl">
+            <h1 className="mt-5 text-4xl font-heading font-black uppercase tracking-[-0.04em] text-white sm:text-5xl">
               {t("title")}
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300 ">{t("subtitle")}</p>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">{t("subtitle")}</p>
           </div>
 
           <div className="grid gap-6 px-6 py-6 sm:px-8 lg:grid-cols-[minmax(0,1.1fr)_340px]">
@@ -249,20 +421,20 @@ function PaymentContent() {
                         isActive
                           ? "border-emerald-400/24 bg-emerald-400/10"
                           : isComplete
-                            ? "border-white/10 bg-white/5  "
-                            : "border-white/10 bg-slate-900/50  "
+                            ? "border-white/10 bg-white/5"
+                            : "border-white/10 bg-slate-900/50"
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <div
                           className={`flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-bold ${
-                            isActive || isComplete ? "bg-emerald-400 text-slate-950" : "bg-white/10 text-slate-400  "
+                            isActive || isComplete ? "bg-emerald-400 text-slate-950" : "bg-white/10 text-slate-400"
                           }`}
                         >
                           {item.id}
                         </div>
                         <div>
-                          <div className="text-sm font-semibold text-white ">{item.title}</div>
+                          <div className="text-sm font-semibold text-white">{item.title}</div>
                           <div className="mt-1 text-xs text-slate-400">{item.detail}</div>
                         </div>
                       </div>
@@ -281,31 +453,40 @@ function PaymentContent() {
                       exit={{ opacity: 0, y: -10 }}
                     >
                       <MatchdayPanelHeader
-                        title={t("step_confirm")}
+                        title="Confirm booking"
                         icon={<Ticket className="h-5 w-5 text-emerald-300" />}
                         className="mb-5"
                         titleClassName="text-lg"
                       />
 
                       <div className="grid gap-4 sm:grid-cols-2">
-                        <MatchdaySummaryBlock label={t("session_id")} value={matchId || "TICKETSHIELD DEMO"} mono />
+                        <MatchdaySummaryBlock label={t("session_id")} value={sessionId || "TICKETSHIELD DEMO"} mono />
                         <MatchdaySummaryBlock
-                          label={t("seat_position")}
-                          value={hasValidSeatSelection ? seatId || "--" : t("not_selected")}
+                          label="Selected seats"
+                          value={hasValidSeatSelection ? getSeatSelectionSummary(seatIds) : t("not_selected")}
                           emphasis={hasValidSeatSelection}
                         />
                       </div>
 
-                      <div className="mt-4 rounded-[24px] border border-white/10 bg-white/5 p-5  ">
+                      <div className="mt-4 rounded-[24px] border border-white/10 bg-white/5 p-5">
+                        <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                          Seat count
+                        </div>
+                        <div className="mt-3 text-3xl font-heading font-black text-white">
+                          {hasValidSeatSelection ? `${seatIds.length}/${MAX_BOOKING_SEATS}` : "--"}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 rounded-[24px] border border-white/10 bg-white/5 p-5">
                         <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
                           {t("total_amount")}
                         </div>
-                        <div className="mt-3 text-3xl font-heading font-black text-white ">
+                        <div className="mt-3 text-3xl font-heading font-black text-white">
                           {priceLoading ? (
                             <span className="text-sm font-medium text-slate-400">{t("calculating")}</span>
                           ) : !hasValidSeatSelection ? (
                             <span className="text-sm font-semibold text-rose-300">
-                              {t("invalid_seat_notice")}
+                              Invalid seat selection
                             </span>
                           ) : (
                             `${securePrice.toLocaleString(locale)} VND`
@@ -315,7 +496,7 @@ function PaymentContent() {
 
                       <div className="mt-6 flex justify-end">
                         <NeonButton onClick={handleNextStep} disabled={priceLoading || !hasValidSeatSelection} className="rounded-[18px] px-5 text-xs uppercase tracking-[0.18em]">
-                          {t("btn_next")}
+                          Continue
                         </NeonButton>
                       </div>
                     </motion.div>
@@ -335,6 +516,10 @@ function PaymentContent() {
                         titleClassName="text-lg"
                       />
 
+                      <div className="mb-5 rounded-[24px] border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                        Booking includes {seatIds.length} seat{seatIds.length > 1 ? "s" : ""}: {getSeatSelectionSummary(seatIds)}
+                      </div>
+
                       <div className="grid gap-4 md:grid-cols-2">
                         <Field className="md:col-span-2" placeholder={t("card_number")} value={cardNumber} onChange={setCardNumber} />
                         <Field placeholder={t("exp_date")} value={expDate} onChange={setExpDate} />
@@ -343,11 +528,11 @@ function PaymentContent() {
                       </div>
 
                       <div className="mt-6 flex items-center justify-between">
-                        <button className="text-sm font-medium text-slate-400 transition-colors hover:text-white  " onClick={() => setStep(1)}>
+                        <button className="text-sm font-medium text-slate-400 transition-colors hover:text-white" onClick={() => setStep(1)}>
                           {t("btn_back")}
                         </button>
-                        <NeonButton onClick={handleNextStep} disabled={!hasValidSeatSelection} className="rounded-[18px] px-5 text-xs uppercase tracking-[0.18em]">
-                          {t("btn_pay")}
+                        <NeonButton onClick={handleNextStep} disabled={!hasValidSeatSelection || isProcessing} className="rounded-[18px] px-5 text-xs uppercase tracking-[0.18em]">
+                          {isProcessing ? t("btn_verifying") : t("btn_pay")}
                         </NeonButton>
                       </div>
                     </motion.div>
@@ -365,44 +550,39 @@ function PaymentContent() {
                           <CheckCircle className="h-12 w-12 text-emerald-300" />
                         </div>
                         <h2 className="mt-6 text-5xl font-heading font-black uppercase tracking-[-0.05em] text-emerald-300">
-                          {t("order_confirmed")}
+                          Booking confirmed
                         </h2>
-                        <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-300">{t("success_desc")}</p>
+                        <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-300">
+                          {t("success_desc")}
+                        </p>
+                        {checkoutNotice ? (
+                          <div className="mx-auto mt-5 max-w-xl rounded-[20px] border border-amber-300/18 bg-amber-300/10 px-4 py-4 text-sm text-amber-100">
+                            {checkoutNotice}
+                          </div>
+                        ) : null}
                         <div className="mt-5 text-sm uppercase tracking-[0.24em] text-slate-400">
-                          {t("issued_code")}: #{issuedTicketId?.slice(0, 8).toUpperCase() || "TS-DEMO"}
+                          Booking group: #{issuedBookingGroupId?.slice(0, 8).toUpperCase() || "TS-DEMO"}
                         </div>
                       </div>
 
                       <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-                        <div className="rounded-[28px] border border-emerald-400/12 bg-[#04120d] p-5">
+                        <div className="theme-inset-accent rounded-[28px] p-5">
                           <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-300">
-                            {t("issued_ticket")}
+                            Issued tickets
                           </div>
                           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                            <MatchdaySummaryBlock label={t("seat_position")} value={seatId || "--"} emphasis />
+                            <MatchdaySummaryBlock label="Seat list" value={getSeatSelectionSummary(seatIds)} emphasis />
+                            <MatchdaySummaryBlock label="Ticket count" value={String(issuedTicketIds.length || seatIds.length)} emphasis />
                             <MatchdaySummaryBlock label={t("total_amount")} value={`${securePrice.toLocaleString(locale)} VND`} emphasis />
+                            <MatchdaySummaryBlock label="Booking group" value={issuedBookingGroupId?.slice(0, 8).toUpperCase() || "TS-DEMO"} emphasis />
                           </div>
-                          {issuedHash ? (
-                            <div className="mt-4 rounded-[20px] border border-white/10 bg-white/5 px-4 py-4  ">
-                              <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                                {t("ai_hash_label")}
-                              </div>
-                              <div className="mt-2 break-all font-mono text-sm text-slate-300 ">{issuedHash}</div>
-                            </div>
-                          ) : null}
                         </div>
 
                         <div className="self-start space-y-3">
                           <div className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-                            <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
-                              {t("next_actions")}
-                            </div>
-                          </div>
-
-                          <div className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-                            <Link href={issuedTicketId ? (`/history/${issuedTicketId}` as never) : "/history"}>
+                            <Link href={issuedTicketIds[0] ? (`/history/${issuedTicketIds[0]}` as never) : "/history"}>
                               <NeonButton className="h-12 w-full rounded-[18px] text-xs uppercase tracking-[0.18em]">
-                                {t("open_issued_ticket")}
+                                Open one issued ticket
                               </NeonButton>
                             </Link>
                           </div>
@@ -424,8 +604,15 @@ function PaymentContent() {
 
             <aside className="space-y-5">
               <MatchdayPanel padding="p-5">
-                <MatchdayPanelHeader title={t("transaction_summary")} icon={<Lock className="h-5 w-5 text-emerald-300" />} className="mb-4" titleClassName="text-xl" />
-                <MatchdaySummaryBlock label={t("seat_position")} value={hasValidSeatSelection ? seatId || "--" : t("not_selected")} />
+                <MatchdayPanelHeader title="Transaction summary" icon={<Lock className="h-5 w-5 text-emerald-300" />} className="mb-4" titleClassName="text-xl" />
+                <MatchdaySummaryBlock label="Seat list" value={hasValidSeatSelection ? getSeatSelectionSummary(seatIds) : t("not_selected")} />
+                <div className="mt-4">
+                  <MatchdaySummaryBlock
+                    label="Seat count"
+                    value={hasValidSeatSelection ? `${seatIds.length}/${MAX_BOOKING_SEATS}` : "--"}
+                    emphasis={!priceLoading && hasValidSeatSelection}
+                  />
+                </div>
                 <div className="mt-4">
                   <MatchdaySummaryBlock
                     label={t("total_amount")}
@@ -433,13 +620,29 @@ function PaymentContent() {
                     emphasis={!priceLoading && hasValidSeatSelection}
                   />
                 </div>
+                <div className="mt-4 rounded-[20px] border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-300">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">AI Checkout Status</div>
+                  <div className="mt-2 text-base font-semibold uppercase text-white">
+                    {riskState?.lastRiskLevel ?? "pending"}
+                  </div>
+                  <div className="mt-2 text-xs text-slate-400">
+                    Confidence: {riskState?.lastRiskConfidence !== null && riskState?.lastRiskConfidence !== undefined
+                      ? `${(riskState.lastRiskConfidence * 100).toFixed(1)}%`
+                      : "--"}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-400">
+                    Last checked: {riskState?.lastRiskCheckedAt
+                      ? new Date(riskState.lastRiskCheckedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                      : "--"}
+                  </div>
+                </div>
               </MatchdayPanel>
 
               <MatchdayPanel padding="p-5">
-                <MatchdayPanelHeader title={t("assurance_title")} icon={<ShieldCheck className="h-5 w-5 text-cyan-300" />} className="mb-4" titleClassName="text-xl" />
+                <MatchdayPanelHeader title="Assurance" icon={<ShieldCheck className="h-5 w-5 text-cyan-300" />} className="mb-4" titleClassName="text-xl" />
                 <div className="space-y-3">
                   {trustPoints.map((point) => (
-                    <div key={point} className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-300   ">
+                    <div key={point} className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-300">
                       {point}
                     </div>
                   ))}
@@ -451,51 +654,67 @@ function PaymentContent() {
       </div>
 
       <AnimatePresence>
-        {anomalyTriggered ? (
+        {securityModal ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+            className="theme-overlay-soft fixed inset-0 z-[100] flex items-center justify-center p-4"
           >
             <motion.div
               initial={{ opacity: 0, y: 18, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.98 }}
-              className="w-full max-w-md rounded-[30px] border border-rose-400/18 bg-[linear-gradient(180deg,rgba(28,14,18,0.98),rgba(19,10,13,0.98))] p-6 shadow-[0_32px_80px_-40px_rgba(0,0,0,0.9)]"
+              className="w-full max-w-md rounded-[30px] border border-rose-400/18 bg-[linear-gradient(180deg,rgba(51,33,42,0.96),rgba(30,18,27,0.96))] p-6 shadow-[0_32px_80px_-40px_rgba(0,0,0,0.66)]"
             >
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-400/10 text-rose-300">
                   <ShieldAlert className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-heading font-black text-white">{t("anomaly_title")}</h3>
-                  <p className="mt-1 text-sm leading-6 text-slate-300">{t("anomaly_desc")}</p>
+                  <h3 className="text-xl font-heading font-black text-white">
+                    {securityModal.type === "warning" ? "AI Warning" : "AI Blocked Checkout"}
+                  </h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-300">
+                    {securityModal.type === "warning"
+                      ? "The server-side AI check flagged this session as unusual."
+                      : "The server-side AI check blocked this checkout attempt."}
+                  </p>
                 </div>
               </div>
 
               <div className="mt-5 rounded-[20px] border border-rose-400/14 bg-rose-400/10 px-4 py-4 text-sm leading-6 text-slate-200">
-                <p>{t("anomaly_notice")}</p>
-                <p className="mt-2 font-semibold text-rose-200">{t("anomaly_action")}</p>
+                <p>{securityModal.message}</p>
+                <p className="mt-2 font-semibold text-rose-200">
+                  Risk level: {securityModal.riskLevel.toUpperCase()}
+                  {securityModal.confidence !== null ? ` | Confidence ${(securityModal.confidence * 100).toFixed(1)}%` : ""}
+                </p>
+                <p className="mt-2 text-xs text-slate-300">
+                  Last checked: {securityModal.checkedAt
+                    ? new Date(securityModal.checkedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                    : "--"}
+                </p>
               </div>
 
               <div className="mt-6 flex flex-col gap-3">
-                <button
-                  onClick={verifyHuman}
-                  disabled={isProcessing}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-[18px] bg-rose-500 px-5 text-sm font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-rose-400 disabled:opacity-50"
-                >
-                  {isProcessing ? (
-                    <span>{t("btn_verifying")}</span>
-                  ) : (
-                    <>
-                      <ScanLine className="h-4 w-4" />
-                      {t("btn_verify")}
-                    </>
-                  )}
-                </button>
-                <button onClick={() => setAnomalyTriggered(false)} className="text-sm font-medium text-slate-300 transition-colors hover:text-white">
-                  {t("btn_cancel")}
+                {securityModal.type === "warning" ? (
+                  <button
+                    onClick={() => void submitSecureCheckout(true)}
+                    disabled={isProcessing}
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-[18px] bg-rose-500 px-5 text-sm font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-rose-400 disabled:opacity-50"
+                  >
+                    {isProcessing ? (
+                      <span>{t("btn_verifying")}</span>
+                    ) : (
+                      <>
+                        <ScanLine className="h-4 w-4" />
+                        Continue Anyway
+                      </>
+                    )}
+                  </button>
+                ) : null}
+                <button onClick={() => setSecurityModal(null)} className="text-sm font-medium text-slate-300 transition-colors hover:text-white">
+                  {securityModal.type === "warning" ? t("btn_cancel") : "Close"}
                 </button>
               </div>
             </motion.div>
@@ -535,14 +754,14 @@ function PaymentPageFallback() {
     <main className="page-premium">
       <div className="mx-auto max-w-7xl px-4 pb-20 pt-24 sm:px-6 lg:px-8">
         <section className="page-shell px-6 py-10 sm:px-8">
-          <div className="h-8 w-40 animate-pulse rounded-full bg-white/10 " />
-          <div className="mt-5 h-14 w-full max-w-lg animate-pulse rounded-[24px] bg-white/10 " />
-          <div className="mt-4 h-5 w-full max-w-2xl animate-pulse rounded-full bg-white/10 " />
+          <div className="h-8 w-40 animate-pulse rounded-full bg-white/10" />
+          <div className="mt-5 h-14 w-full max-w-lg animate-pulse rounded-[24px] bg-white/10" />
+          <div className="mt-4 h-5 w-full max-w-2xl animate-pulse rounded-full bg-white/10" />
           <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_340px]">
-            <div className="h-[420px] animate-pulse rounded-[30px] border border-white/10 bg-white/5  " />
+            <div className="h-[420px] animate-pulse rounded-[30px] border border-white/10 bg-white/5" />
             <div className="space-y-5">
-              <div className="h-40 animate-pulse rounded-[30px] border border-white/10 bg-white/5  " />
-              <div className="h-56 animate-pulse rounded-[30px] border border-white/10 bg-white/5  " />
+              <div className="h-40 animate-pulse rounded-[30px] border border-white/10 bg-white/5" />
+              <div className="h-56 animate-pulse rounded-[30px] border border-white/10 bg-white/5" />
             </div>
           </div>
         </section>

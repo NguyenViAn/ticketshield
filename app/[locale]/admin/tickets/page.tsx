@@ -29,15 +29,15 @@ const FILTER_VALUES = ["All", "Valid", "Used", "Cancelled", "Suspended"];
 function statusColor(status: string) {
   switch (status) {
     case "Valid":
-      return "bg-emerald-500/15 text-emerald-400";
+      return "border border-emerald-500/18 bg-emerald-500/10 text-emerald-300";
     case "Used":
-      return "bg-blue-500/15 text-blue-400";
+      return "border border-cyan-500/18 bg-cyan-500/10 text-cyan-300";
     case "Cancelled":
-      return "bg-red-500/15 text-red-400";
+      return "border border-rose-500/18 bg-rose-500/10 text-rose-300";
     case "Suspended":
-      return "bg-yellow-500/15 text-yellow-400";
+      return "border border-amber-400/18 bg-amber-400/10 text-amber-300";
     default:
-      return "bg-slate-500/15 text-slate-400";
+      return "border border-white/8 bg-white/[0.04] text-slate-400";
   }
 }
 
@@ -74,10 +74,10 @@ export default function AdminTicketsPage() {
           <button
             key={key}
             onClick={() => setFilter(FILTER_VALUES[index])}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                    className={`admin-focus-ring rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all ${
               filter === FILTER_VALUES[index]
-                ? "bg-emerald-500/20 text-emerald-300 shadow-[inset_0_1px_0_rgba(52,211,153,0.15)]"
-                : "border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
+                ? "border-cyan-500/18 bg-cyan-500/10 text-cyan-300"
+                : "border-white/8 bg-white/[0.04] text-slate-400 hover:border-white/12 hover:bg-white/[0.06] hover:text-white"
             }`}
           >
             {t(key)}
@@ -93,54 +93,43 @@ export default function AdminTicketsPage() {
       >
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/10">
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  {t("match")}
-                </th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  {t("seat")}
-                </th>
-                <th className="hidden px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 md:table-cell">
-                  {t("price")}
-                </th>
-                <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  {t("status")}
-                </th>
-                <th className="hidden px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 lg:table-cell">
-                  {t("created")}
-                </th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  {t("actions")}
-                </th>
+            <thead className="admin-table-head">
+              <tr>
+                <th className="px-4 py-3 text-left">{t("match")}</th>
+                <th className="px-4 py-3 text-left">{t("seat")}</th>
+                <th className="hidden px-4 py-3 text-left xl:table-cell">Booking Group</th>
+                <th className="hidden px-4 py-3 text-right md:table-cell">{t("price")}</th>
+                <th className="px-4 py-3 text-center">{t("status")}</th>
+                <th className="hidden px-4 py-3 text-left lg:table-cell">{t("created")}</th>
+                <th className="px-4 py-3 text-right">{t("actions")}</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 [...Array(5)].map((_, index) => (
-                  <tr key={index} className="border-b border-white/10">
-                    <td colSpan={6} className="px-4 py-4">
-                      <div className="h-5 animate-pulse rounded bg-white/5" />
+                  <tr key={index} className="border-b border-white/6">
+                    <td colSpan={7} className="px-4 py-4">
+                      <div className="admin-skeleton h-5 rounded" />
                     </td>
                   </tr>
                 ))
               ) : filtered.length > 0 ? (
                 filtered.map((ticket) => (
-                  <tr
-                    key={ticket.id}
-                    className="admin-table-row"
-                  >
+                  <tr key={ticket.id} className="admin-table-row">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Ticket className="h-4 w-4 shrink-0 text-cyan-500" />
+                        <Ticket className="h-4 w-4 shrink-0 text-cyan-300" />
                         <span className="font-medium text-white">
                           {ticket.matches?.home_team} vs {ticket.matches?.away_team}
                         </span>
                       </div>
-                      <div className="mt-0.5 pl-6 text-xs text-slate-400">ID: {ticket.id.slice(0, 8)}...</div>
+                      <div className="mt-0.5 pl-6 text-xs text-slate-500">ID: {ticket.id.slice(0, 8)}...</div>
                     </td>
                     <td className="px-4 py-3 text-slate-300">{ticket.seat}</td>
-                    <td className="hidden px-4 py-3 text-right font-medium text-emerald-400 md:table-cell">
+                    <td className="hidden px-4 py-3 font-mono text-xs text-slate-500 xl:table-cell">
+                      {(ticket.booking_group_id ?? ticket.id).slice(0, 8).toUpperCase()}
+                    </td>
+                    <td className="hidden px-4 py-3 text-right font-medium text-white md:table-cell">
                       {formatCurrency(ticket.price_paid, locale)} VND
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -150,7 +139,7 @@ export default function AdminTicketsPage() {
                         {ticket.status}
                       </span>
                     </td>
-                    <td className="hidden px-4 py-3 text-slate-400 lg:table-cell">
+                    <td className="hidden px-4 py-3 text-slate-500 lg:table-cell">
                       {formatDate(ticket.created_at, locale)}
                     </td>
                     <td className="px-4 py-3">
@@ -158,10 +147,10 @@ export default function AdminTicketsPage() {
                         <select
                           value={ticket.status}
                           onChange={(event) => handleStatusChange(ticket.id, event.target.value)}
-                          className="rounded-lg border border-white/10 bg-slate-950 px-2 py-1 text-xs text-slate-200 outline-none transition-colors focus:border-emerald-500/40"
+                          className="admin-focus-ring rounded-lg border border-white/8 bg-white/[0.04] px-2 py-1 text-xs text-slate-200 outline-none transition-colors focus:border-cyan-400/30"
                         >
                           {STATUS_OPTIONS.map((status) => (
-                            <option key={status} value={status} className="bg-slate-950 text-slate-100">
+                            <option key={status} value={status}>
                               {status}
                             </option>
                           ))}
@@ -172,7 +161,7 @@ export default function AdminTicketsPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
                     {t("no_tickets")}
                   </td>
                 </tr>

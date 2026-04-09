@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Suspense, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowRight,
   Chrome,
@@ -18,6 +18,7 @@ import {
 
 import { Logo } from "@/components/logo";
 import { NeonButton } from "@/components/ui/neon-button";
+import { resolveRequestedRedirect, resolveRoleAwareRedirect, resolveRoutingLocale } from "@/utils/auth-routing";
 import { createClient } from "@/utils/supabase/client";
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -28,6 +29,7 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
+  const locale = resolveRoutingLocale(useLocale());
   const t = useTranslations("Login");
 
   const [isLoginMode, setIsLoginMode] = useState(true);
@@ -41,11 +43,10 @@ function LoginContent() {
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
 
-  const rawRedirect = searchParams.get("redirect");
-  const fallbackRedirect = "/";
-  const redirectUrl =
-    rawRedirect && rawRedirect.startsWith("/") ? (rawRedirect === "/" ? fallbackRedirect : rawRedirect) : fallbackRedirect;
+  const requestedRedirect = resolveRequestedRedirect(searchParams.get("redirect"));
   const profileAfterReset = "/profile";
+
+  const resolvePostAuthRedirect = (role: unknown) => resolveRoleAwareRedirect(requestedRedirect, locale, role);
 
   const handleEmailAuth = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -53,13 +54,17 @@ function LoginContent() {
     setStep("scanning");
 
     try {
+      let authRole: unknown = null;
+
       if (isLoginMode) {
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) {
           throw signInError;
         }
+
+        authRole = data.user?.user_metadata?.role;
       } else {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -73,12 +78,16 @@ function LoginContent() {
         if (signUpError) {
           throw signUpError;
         }
+
+        authRole = data.user?.user_metadata?.role;
       }
+
+      const nextPath = resolvePostAuthRedirect(authRole);
 
       setTimeout(() => {
         setStep("success");
         setTimeout(() => {
-          router.push(redirectUrl);
+          router.push(nextPath);
         }, 1200);
       }, 1200);
     } catch (err: unknown) {
@@ -89,10 +98,17 @@ function LoginContent() {
 
   const handleGoogleLogin = async () => {
     try {
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      callbackUrl.searchParams.set("locale", locale);
+
+      if (requestedRedirect) {
+        callbackUrl.searchParams.set("next", requestedRedirect);
+      }
+
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectUrl)}`,
+          redirectTo: callbackUrl.toString(),
         },
       });
 
@@ -336,7 +352,7 @@ function LoginContent() {
                       <span className="w-full border-t border-white/10" />
                     </div>
                     <div className="relative flex justify-center text-xs font-bold uppercase tracking-[0.18em]">
-                      <span className="bg-[#0f172a] px-4 text-slate-400">{t("or_external")}</span>
+                      <span className="bg-[#111b31] px-4 text-slate-300">{t("or_external")}</span>
                     </div>
                   </div>
 
@@ -403,7 +419,7 @@ function LoginFallback() {
   const t = useTranslations("Login");
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0f172a] text-slate-300">
+    <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#111b31_0%,#101a2d_100%)] text-slate-300">
       <div className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-300">{t("initializing")}</div>
     </div>
   );

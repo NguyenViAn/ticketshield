@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { motion, Variants } from "framer-motion";
 import {
   CalendarClock,
   CheckCircle2,
-  Clock,
-  Copy,
   CreditCard,
   MapPin,
   ShieldCheck,
@@ -20,6 +18,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useTickets } from "@/hooks/use-tickets";
+import { groupTicketsByBooking } from "@/lib/bookings";
 import { NeonButton } from "@/components/ui/neon-button";
 import {
   MatchdayActionTile,
@@ -61,24 +60,24 @@ export default function HistoryPage() {
   }, [authLoading, isLoggedIn, locale, router]);
 
   const { data: tickets, isLoading: ticketsLoading, error: ticketsError, refetch } = useTickets();
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const bookingGroups = useMemo(() => groupTicketsByBooking(tickets), [tickets]);
 
   const summary = useMemo(() => {
-    const validTickets = tickets.filter((ticket) => ticket.status === "Valid");
-    const upcomingTickets = validTickets.filter(
-      (ticket) => new Date(ticket.matches?.date ?? ticket.created_at) > new Date()
+    const activeBookings = bookingGroups.filter((group) => group.status === "Active");
+    const upcomingBookings = activeBookings.filter(
+      (group) => new Date(group.tickets[0]?.matches?.date ?? group.latestCreatedAt) > new Date()
     );
-    const spentTotal = tickets.reduce((sum, ticket) => sum + ticket.price_paid, 0);
-    const latestPurchase = tickets[0] ?? null;
+    const spentTotal = bookingGroups.reduce((sum, group) => sum + group.totalPrice, 0);
+    const latestBooking = bookingGroups[0] ?? null;
 
     return {
-      latestPurchase,
+      latestBooking,
       spentTotal,
-      totalTickets: tickets.length,
-      upcomingTickets: upcomingTickets.length,
-      validTickets: validTickets.length,
+      totalBookings: bookingGroups.length,
+      upcomingBookings: upcomingBookings.length,
+      activeBookings: activeBookings.length,
     };
-  }, [tickets]);
+  }, [bookingGroups]);
 
   const isLoading = authLoading || ticketsLoading;
   const showError = Boolean(ticketsError) && !isLoading;
@@ -86,12 +85,6 @@ export default function HistoryPage() {
   if (!isLoggedIn && !authLoading) {
     return null;
   }
-
-  const handleCopy = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
 
   return (
     <main className="page-premium">
@@ -101,10 +94,10 @@ export default function HistoryPage() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/14 bg-emerald-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300">
                 <Wallet className="h-3.5 w-3.5" />
-                {t("badge")}
+                Booking wallet
               </div>
               <h1 className="mt-5 text-5xl font-heading font-black uppercase leading-[0.95] tracking-[-0.04em] text-white sm:text-6xl">
-                {t("hero_title")}
+                {t("title")}
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">{t("subtitle")}</p>
             </div>
@@ -112,13 +105,13 @@ export default function HistoryPage() {
             <div className="grid gap-4">
               <QuickAction
                 href="/matches"
-                title={t("quick_browse_title")}
-                description={t("quick_browse_desc")}
+                title="Browse matches"
+                description="Start a new booking with up to 4 seats."
               />
               <QuickAction
                 href="/profile"
-                title={t("quick_profile_title")}
-                description={t("quick_profile_desc")}
+                title="Open profile"
+                description="Review your wallet and account summary."
               />
             </div>
           </div>
@@ -126,25 +119,25 @@ export default function HistoryPage() {
 
         <section className="mt-6 grid gap-5 xl:grid-cols-4">
           <MatchdayStatCard
-            label={t("stat_total")}
-            value={summary.totalTickets.toString()}
+            label="Bookings"
+            value={summary.totalBookings.toString()}
             accent="emerald"
             icon={<Ticket className="h-5 w-5" />}
           />
           <MatchdayStatCard
-            label={t("stat_valid")}
-            value={summary.validTickets.toString()}
+            label="Active groups"
+            value={summary.activeBookings.toString()}
             accent="cyan"
             icon={<CheckCircle2 className="h-5 w-5" />}
           />
           <MatchdayStatCard
-            label={t("stat_upcoming")}
-            value={summary.upcomingTickets.toString()}
+            label="Upcoming"
+            value={summary.upcomingBookings.toString()}
             accent="slate"
             icon={<CalendarClock className="h-5 w-5" />}
           />
           <MatchdayStatCard
-            label={t("stat_spend")}
+            label={t("value")}
             value={`${summary.spentTotal.toLocaleString(locale)} VND`}
             accent="slate"
             icon={<CreditCard className="h-5 w-5" />}
@@ -169,7 +162,7 @@ export default function HistoryPage() {
                   <div key={index} className="h-44 animate-pulse rounded-[28px] border border-white/10 bg-white/5" />
                 ))}
               </div>
-            ) : tickets.length === 0 ? (
+            ) : bookingGroups.length === 0 ? (
               <div className="rounded-[30px] border border-dashed border-white/10 bg-white/5 px-6 py-20 text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-400/16 bg-emerald-400/10 text-emerald-300">
                   <Ticket className="h-8 w-8" />
@@ -186,73 +179,54 @@ export default function HistoryPage() {
               </div>
             ) : (
               <motion.div className="space-y-4" variants={staggerContainer} initial="hidden" animate="show">
-                {tickets.map((ticket) => {
-                  const ticketTitle = ticket.matches
-                    ? `${ticket.matches.home_team} vs ${ticket.matches.away_team}`
-                    : t("unknown_match");
+                {bookingGroups.map((group) => {
+                  const referenceTicket = group.tickets[0];
+                  const eventDate = referenceTicket?.matches?.date
+                    ? new Date(referenceTicket.matches.date).toLocaleString(locale)
+                    : new Date(group.latestCreatedAt).toLocaleString(locale);
 
                   return (
-                    <motion.div key={ticket.id} variants={itemVariant}>
+                    <motion.div key={group.bookingGroupId} variants={itemVariant}>
                       <MatchdayPanel className="transition-all hover:border-emerald-400/18" padding="p-5">
                         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                           <div className="flex-1">
                             <div className="mb-3 flex flex-wrap items-center gap-2">
                               <span className="font-mono text-sm text-slate-400">
-                                {t("id_prefix")}
-                                {ticket.id.split("-")[0]}
+                                Group: {group.bookingGroupId.slice(0, 8).toUpperCase()}
                               </span>
-                              {ticket.status === "Valid" ? (
-                                <MatchdayStatusPill icon={CheckCircle2} label={t("status_valid")} tone="emerald" />
-                              ) : ticket.status === "Used" ? (
-                                <MatchdayStatusPill icon={Clock} label={t("status_used")} tone="cyan" />
+                              {group.status === "Active" ? (
+                                <MatchdayStatusPill icon={CheckCircle2} label="ACTIVE" tone="emerald" />
                               ) : (
-                                <MatchdayStatusPill icon={XCircle} label={t("status_cancelled")} tone="slate" />
+                                <MatchdayStatusPill icon={XCircle} label="CANCELLED" tone="slate" />
                               )}
                             </div>
 
                             <h3 className="text-3xl font-heading font-black uppercase tracking-[-0.03em] text-white">
-                              {ticketTitle}
+                              {group.matchTitle}
                             </h3>
                             <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-300">
                               <MatchdayMetaPill icon={MapPin} toneClassName="text-rose-300">
-                                {ticket.matches?.stadium || t("venue_updating")}
+                                {referenceTicket?.matches?.stadium || t("unknown_match")}
                               </MatchdayMetaPill>
                               <MatchdayMetaPill icon={CalendarClock} toneClassName="text-cyan-300">
-                                {ticket.matches?.date
-                                  ? new Date(ticket.matches.date).toLocaleString(locale)
-                                  : new Date(ticket.created_at).toLocaleString(locale)}
+                                {eventDate}
                               </MatchdayMetaPill>
                               <MatchdayMetaPill icon={Ticket} toneClassName="text-emerald-300">
-                                {ticket.seat}
+                                {group.seatCount} seat{group.seatCount > 1 ? "s" : ""}
                               </MatchdayMetaPill>
+                            </div>
+                            <div className="mt-4 rounded-[22px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+                              Seats: {group.seats.join(", ")}
                             </div>
                           </div>
 
                           <div className="page-card-muted p-4 xl:min-w-[280px]">
-                            <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">{t("value")}</div>
+                            <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">Booking total</div>
                             <div className="mt-2 text-3xl font-heading font-black tracking-[-0.03em] text-emerald-300">
-                              {ticket.price_paid.toLocaleString(locale)} VND
+                              {group.totalPrice.toLocaleString(locale)} VND
                             </div>
 
-                            <div className="mt-4 flex items-center gap-2 rounded-[18px] border border-white/8 bg-[#04120d] px-3 py-3">
-                              <ShieldCheck className="h-4 w-4 text-cyan-300 opacity-90" />
-                              <span className="min-w-0 flex-1 truncate font-mono text-xs text-slate-300" title={ticket.ai_validation_hash}>
-                                {ticket.ai_validation_hash.substring(0, 14)}...
-                              </span>
-                              <button
-                                onClick={() => handleCopy(ticket.ai_validation_hash, ticket.id)}
-                                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-emerald-400/10 hover:text-emerald-300"
-                                title={t("copy_hash_title")}
-                              >
-                                {copiedId === ticket.id ? (
-                                  <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-                                ) : (
-                                  <Copy className="h-4 w-4" />
-                                )}
-                              </button>
-                            </div>
-
-                            <Link href={`/history/${ticket.id}` as never} className="mt-4 block">
+                            <Link href={`/history/${group.primaryTicketId}` as never} className="mt-4 block">
                               <NeonButton className="h-12 w-full rounded-[18px] border border-emerald-400/16 bg-emerald-400/10 px-4 text-sm font-semibold uppercase tracking-[0.16em] text-emerald-200 hover:bg-emerald-400/14">
                                 <Ticket className="mr-2 h-4 w-4" />
                                 {t("btn_manage")}
@@ -271,43 +245,41 @@ export default function HistoryPage() {
           <aside className="space-y-6">
             <MatchdayPanel>
               <MatchdayPanelHeader
-                title={t("snapshot_title")}
+                title="Latest booking"
                 icon={<ShieldCheck className="h-5 w-5 text-cyan-300" />}
               />
-              {summary.latestPurchase ? (
+              {summary.latestBooking ? (
                 <>
                   <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
-                    {t("latest_purchase")}
+                    Seats in latest group
                   </div>
                   <div className="mt-3 text-2xl font-heading font-black uppercase tracking-[-0.03em] text-white">
-                    {summary.latestPurchase.matches
-                      ? `${summary.latestPurchase.matches.home_team} vs ${summary.latestPurchase.matches.away_team}`
-                      : t("unknown_match")}
+                    {summary.latestBooking.matchTitle}
                   </div>
                   <div className="mt-3 text-sm text-slate-300">
-                    {new Date(summary.latestPurchase.created_at).toLocaleString(locale)}
+                    {summary.latestBooking.seats.join(", ")}
                   </div>
                 </>
               ) : (
                 <div className="text-sm leading-6 text-slate-300">
-                  {t("snapshot_empty")}
+                  No booking groups yet.
                 </div>
               )}
             </MatchdayPanel>
 
             <MatchdayPanel>
               <MatchdayPanelHeader
-                title={t("next_actions")}
+                title="Next actions"
                 icon={<Wallet className="h-5 w-5 text-emerald-300" />}
               />
               <div className="space-y-3">
                 <SidebarAction
                   href="/matches"
-                  label={t("next_action_matches")}
+                  label="Start another protected booking"
                 />
                 <SidebarAction
                   href="/profile"
-                  label={t("next_action_profile")}
+                  label="Review wallet and profile"
                 />
               </div>
             </MatchdayPanel>

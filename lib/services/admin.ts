@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { fetchSecurityBookingEvents } from "@/lib/admin-security";
 import type { AdminPromotion, AdminStats, AdminTicket, BlockedUser, Match } from "@/types";
 
 export async function fetchAdminStats(supabase: SupabaseClient): Promise<AdminStats> {
@@ -86,6 +87,24 @@ export async function fetchAllTickets(supabase: SupabaseClient) {
 
   if (error) throw error;
   return (data ?? []) as AdminTicket[];
+}
+
+export async function fetchAllBookingEvents(supabase: SupabaseClient, limit = 1000) {
+  return fetchSecurityBookingEvents(supabase, limit);
+}
+
+export async function fetchAdminSecurityContext(supabase: SupabaseClient) {
+  const [bookingEvents, matches, blockedUsers] = await Promise.all([
+    fetchAllBookingEvents(supabase, 1000),
+    fetchAllMatches(supabase),
+    fetchBlockedUsers(supabase),
+  ]);
+
+  return {
+    bookingEvents,
+    matches,
+    blockedUsers,
+  };
 }
 
 export async function updateTicketStatus(supabase: SupabaseClient, id: string, status: string) {

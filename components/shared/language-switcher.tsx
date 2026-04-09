@@ -14,12 +14,12 @@ export function LanguageSwitcher() {
     const t = useTranslations('LanguageSwitcher');
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const [isMounted, setIsMounted] = React.useState(false);
+    const isMounted = React.useSyncExternalStore(
+        () => () => {},
+        () => true,
+        () => false,
+    );
     const [isPending, startTransition] = React.useTransition();
-
-    React.useEffect(() => {
-        setIsMounted(true);
-    }, []);
 
     function switchLanguage(newLocale: AppLocale) {
         const localePattern = new RegExp(`^/(${routing.locales.join('|')})(?=/|$)`);

@@ -30,7 +30,7 @@ export function MatchdayPanel({
   return (
     <section
       className={cn(
-        "rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.4),rgba(2,6,23,0.6))] shadow-[0_24px_64px_-42px_rgba(0,0,0,0.5)]   ",
+        "rounded-[30px] border border-white/12 bg-[linear-gradient(180deg,rgba(30,41,59,0.72),rgba(15,23,42,0.86))] shadow-[0_24px_64px_-42px_rgba(0,0,0,0.42)]   ",
         padding,
         className
       )}
@@ -150,7 +150,7 @@ export function MatchdayInfoField({
   return (
     <div className={className}>
       <div className="mb-3 text-[12px] font-bold uppercase tracking-[0.2em] text-slate-400">{label}</div>
-      <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4  ">{children}</div>
+      <div className="theme-inset-surface rounded-[22px] px-4 py-4  ">{children}</div>
     </div>
   );
 }

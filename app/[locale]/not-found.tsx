@@ -11,7 +11,7 @@ export default function NotFound() {
   const t = useTranslations("NotFound");
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#0f172a] px-4 py-12 text-slate-200  ">
+    <main className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#111b31_0%,#101a2d_100%)] px-4 py-12 text-slate-200  ">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}

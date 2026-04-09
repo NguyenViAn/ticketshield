@@ -1,6 +1,7 @@
 "use client";
 
 import { BellRing, Settings2, ShieldCheck, Workflow } from "lucide-react";
+
 import { AdminMetricCard, AdminPanel, AdminPanelHeader, StatusPill } from "@/components/admin/admin-primitives";
 
 const settingsGroups = [
@@ -31,12 +32,12 @@ export default function AdminSettingsPage() {
       </div>
 
       <AdminPanel>
-        <AdminPanelHeader title="Admin workspace settings" description="Trang placeholder cho admin settings. Giu cau truc shell rieng, chua can dong vao backend logic." />
+        <AdminPanelHeader title="Admin workspace settings" description="Placeholder settings page kept consistent with the active control-center shell." />
         <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6 xl:grid-cols-3">
           {settingsGroups.map((group) => (
             <div key={group.title} className="admin-surface-muted p-5">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-500/18 bg-cyan-500/10 text-cyan-300">
                   <Settings2 className="h-5 w-5" />
                 </div>
                 <StatusPill tone={group.status === "Active" ? "emerald" : group.status === "Draft" ? "amber" : "cyan"}>
@@ -44,7 +45,7 @@ export default function AdminSettingsPage() {
                 </StatusPill>
               </div>
               <h3 className="mt-4 text-lg font-semibold text-white">{group.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-300">{group.description}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-400">{group.description}</p>
             </div>
           ))}
         </div>
