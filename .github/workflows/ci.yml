@@ -20,20 +20,16 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: ticketshield/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
-        working-directory: ticketshield
 
       - name: Lint
         run: npm run lint
-        working-directory: ticketshield
 
       - name: Typecheck
         run: npm run typecheck
-        working-directory: ticketshield
 
       - name: Build
         run: npm run build
-        working-directory: ticketshield
